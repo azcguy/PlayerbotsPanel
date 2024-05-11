@@ -4,7 +4,7 @@ _data.textures = {}
 _data.colors = {}
 _data.sounds = {}
 _data.strings = {}
-_data.ROOT_PATH = "Interface\\AddOns\\!PlayerbotsPanel\\"
+_data.ROOT_PATH = "Interface\\AddOns\\PlayerbotsPanel\\"
 
 -----------------------------------------------------------------------------
 ----- Colors 
