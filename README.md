@@ -17,6 +17,10 @@ You are free to make suggestions, but read the planned features first.
 
 ## INSTRUCTIONS
 Clone the repository into your AddOns folder
+
+use /pp toggle 
+put it on a macro
+
 Open Settings tab, and use "Register" buttons to add owned bots.
 Hover over various help (?) and other buttons to see what they do.
 
