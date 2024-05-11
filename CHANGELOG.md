@@ -1,0 +1,1 @@
+# PlayerbotsPanel Changelog
