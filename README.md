@@ -4,6 +4,7 @@
 ![image](/textures/screenshot-1.png)
 
 This addon is for use with https://github.com/liyunfan1223/mod-playerbots 
+Right now its under development, and is using https://github.com/azcguy/PlayerbotsPanelEmu as a communication emulator for server side bot on a client
 
 The goal of this addon is to provide a convenient interface to manage player owned Playerbots.
 For now the addon solely focuses on your bots, ignoring RandomBot, with preference given to your alt-bots.
