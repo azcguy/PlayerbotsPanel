@@ -5,11 +5,10 @@ local _updateHandler = PlayerbotsPanelUpdateHandler
 local _bots = nil
 local _debug = AceLibrary:GetInstance("AceDebug-2.0")
 local _cfg = PlayerbotsPanelConfig
-local _nextQueryId = 0
 
 PlayerbotsBrokerQueryType = {}
 local QUERY_TYPE = PlayerbotsBrokerQueryType
-QUERY_TYPE.STATUS = 0 -- online, in party
+--QUERY_TYPE.STATUS = 0 -- online, in party
 QUERY_TYPE.CURRENCY = 1 -- money, honor, tokens
 QUERY_TYPE.GEAR = 2 -- only what is equipped
 QUERY_TYPE.INVENTORY = 3 -- whats in the bags and bags themselves
@@ -28,7 +27,7 @@ CMD_TYPE.FOLLOW = 2
 
 PlayerbotsBrokerReportType = {}
 local REPORT_TYPE = PlayerbotsBrokerReportType
-REPORT_TYPE.STATUS = 0 -- status changed
+--REPORT_TYPE.STATUS = 0 -- status changed
 REPORT_TYPE.CURRENCY = 1 -- currency changed
 REPORT_TYPE.GEAR = 2 -- gear changed (item equipped/ unequipped)
 REPORT_TYPE.INVENTORY = 3 -- inventory changed (bag changed, item added / removed / destroyed)
@@ -36,25 +35,27 @@ REPORT_TYPE.TALENTS = 4 -- talent learned / spec changed / talents reset
 REPORT_TYPE.SPELLS = 5 -- spell learned
 REPORT_TYPE.QUEST = 6 -- single quest accepted, abandoned, changed, completed
 
+local _pingFrequency = 1
+local _considerOfflineTime = 2
+local _nextQueryId = 0
+local _prefixCode = "pb8aj2" -- just something unique from other addons
+local _handshakeCode = "hs"
+local _logoutCode = "lo"
+local _ping = "p"
+local _report = "r"
 
 -- Stores queues per query type, per bot
 -- _queries[botName][QUERY_TYPE]
 local _queries = {}
 -- optimization, duplicates references to queries in _queries but accelerates lookup by int
 local _activeQueriesById = {}
-
--- Stores report handlers per report type
-local _reportHandlers = {}
-
--- Stores Query Complete handlers per  per bot, query type
-local _completeHandlers = {}
-
 local queryTemplates = {}
+local _botStatus = {}
 
 -- pay attention not to capture anything in functions
-queryTemplates[QUERY_TYPE.STATUS] = 
+queryTemplates[QUERY_TYPE.CURRENCY] = 
 {
-    qtype = QUERY_TYPE.STATUS,
+    qtype = QUERY_TYPE.CURRENCY,
     bot = nil, -- target bot data
     id = 0, -- query id
     method = 1, -- 0 - ADDON_MSG | 1 - WHISPER ( LEGACY ),
@@ -64,13 +65,12 @@ queryTemplates[QUERY_TYPE.STATUS] =
 
     onStartLegacy    = function(query)
         local bot = query.bot
-        bot.online = UnitIsConnected(bot.name)
+        bot.online = UnitIsConnected(bot.name) 
 
         if bot.online then
             PlayerbotsBroker:FinalizeQuery(query)
             return
         else
-            InviteUnit(bot.name)
         end
     end,
     onProgressLegacy = function(query, payload) 
@@ -101,25 +101,90 @@ queryTemplates[QUERY_TYPE.STATUS] =
     end,
 }
 
--- ------------------ OLD API
-local botQueryQueues = {}
-local botActiveQueries = {}
--- ------------------ OLD API
-
-
 -----------------------------------------------------------------------------
 ----- NEW API START
 -----------------------------------------------------------------------------
+
+function PlayerbotsBroker:GetBotStatus(name)
+    local status = _botStatus[name]
+    if not status then
+        status = {}
+        status.lastMessageTime = 0.0
+        status.lastPing = 0.0
+        status.online = false 
+        status.party = false
+        _botStatus[name] = status
+    end
+    return status
+end
+
+function PlayerbotsBroker:print(t)
+    DEFAULT_CHAT_FRAME:AddMessage("pp_broker: " .. t)
+end
+
+local function Send(msg, name)
+    SendAddonMessage(_prefixCode, msg, "WHISPER", name)
+end
 
 -- bots - reference to _dbchar.bots
 function PlayerbotsBroker:Init(bots)
     _bots = bots
     _updateHandler:RegisterHandler(PlayerbotsBroker.OnUpdate)
+
+    for name, bot in pairs(_bots) do
+        Send(_ping, bot.name)
+    end
+
+    --for name, bot in pairs(_bots) do
+    --    if bot then
+    --        local status = PlayerbotsBroker:GetBotStatus(bot.name)
+    --        if status.offline then
+    --            print("should ping bot")
+    --            PingBot(bot.name)
+    --        end
+    --    end
+    --end
 end
 
+function PlayerbotsBroker:OnEnable()
+    for name, bot in pairs(_bots) do
+        Send(_ping, bot.name)
+    end
+end
+
+function PlayerbotsBroker:OnDisable()
+    for name, bot in pairs(_bots) do
+        Send(_logoutCode, bot.name)
+    end
+end
+
+local function PingBot(name)
+    print("pinging bot: " .. name)
+    Send(_ping, name)
+end
 function PlayerbotsBroker:OnUpdate(elapsed)
-    -- OLD
     local time = _updateHandler.totalTime
+
+    for name, bot in pairs(_bots) do
+        if bot then
+            local status = PlayerbotsBroker:GetBotStatus(bot.name)
+            if status.online then
+                --if status.lastMessageTime + _pingFrequency < time then
+                --    PingBot(bot.name)
+                --end
+                --if status.lastMessageTime + _considerOfflineTime < time then
+                --    status.online = false
+                --    PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+                --end
+            else
+                --if status.lastPing + _pingFrequency < time then
+                --    status.lastPing = time
+                --    PingBot(bot.name)
+                --end
+            end
+        end
+    end
+
     local closeWindow = _cfg.queryCloseWindow
     for id, query in pairs(_activeQueriesById) do
         if query ~= nil and query.lastMessageTime ~= nil then
@@ -128,18 +193,6 @@ function PlayerbotsBroker:OnUpdate(elapsed)
             end
         end
     end
-
-    --if activeBotQuery ~= nil then
-    --    for k, q in pairs(botActiveQueries) do
-    --        if q ~= nil then
-    --            if q.anyMsgReceived then
-    --                if q.lastMessageTime < q.lastMessageTime + q.timeWindow then
-    --                  PlayerbotsPanel:FinishActiveQuery()
-    --                end
-    --            end
-    --        end
-    --    end
-    --end
 end
 
 function PlayerbotsBroker:StartQuery(qtype, name)
@@ -205,35 +258,43 @@ function PlayerbotsBroker:FinalizeQuery(query)
     PlayerbotsBroker:NotifyQueryComplete(query.qtype, query.bot.name)
 end
 
-function PlayerbotsBroker:NotifyQueryComplete(qtype, name)
-    local handlers = PlayerbotsBroker:GetCompleteHandlers(qtype, name)
-    local count = getn(handlers)
-    if count > 0 then
-        for i=1, count do
-            handlers[i](name)
-        end
-    end
-end
-
 function PlayerbotsBroker:SendWhisper(msg, name)
     SendChatMessage(msg, "WHISPER", nil, name)
 end
 
-function PlayerbotsBroker:SendAddonMsg(msg, name)
-    SendAddonMessage("pp", msg, "WHISPER", name)
-end
-
 function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
-    SendChatMessage("MSG ADDON START -----")
-    SendChatMessage(prefix)
-    SendChatMessage(message)
-    SendChatMessage(sender)
-    SendChatMessage("MSG ADDON END   -----")
+    if prefix == _prefixCode then 
+        local bot = _bots[sender]
+        if bot then
+            print("received from: " .. bot.name .. " msg: " .. message)
+            local status = PlayerbotsBroker:GetBotStatus(bot.name)
+            status.lastMessageTime = _updateHandler.totalTime
+            ---- any message from the bot is considered a ping and will switch on the online status
+            --if not status.online then
+            --    
+            --    status.online = true
+            --    PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+            --end
 
-    if prefix == "pbot.qr" then -- process bot query response messages
-
-    elseif prefix == "pbot.re" then -- process bot reports
-
+            if message == _ping then
+                if not status.online then
+                    status.online = true
+                    PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+                end
+            elseif message == _handshakeCode then
+                if not status.online then
+                    status.online = true
+                    PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+                end
+                Send(_handshakeCode, bot.name)
+                --PlayerbotsBroker:NotifyQueryComplete(QUERY_TYPE.STATUS, bot.name)
+            elseif message == _logoutCode then
+                if status.online then
+                    status.online = false
+                    PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+                end
+            end
+        end
     end
 end
 
@@ -266,25 +327,6 @@ function PlayerbotsBroker:CHAT_MSG_WHISPER(message, sender, language, channelStr
             end
         end
     end
-
-    --local q = botActiveQueries[sender]
-    --if q == nil then return end
-    --q.anyMsgReceived = true
-    --q.lastMessageTime = _updateHandler._totalTime
-    --if q.mode == 1 then -- STATS cmd
-    --    local bot = PlayerbotsPanel:GetBot(sender)
-    --    local money, bag, durability, xp = strsplit(",", message)
-    --    if money then
-    --        local gold, silver, copper = strsplit(" ", money)
-    --        if copper then bot.currency.copper = copper end
-    --        if silver then bot.currency.silver = silver end
-    --        if gold then bot.currency.gold = gold end
-    --    end
-    --    if bag then
-    --    
-    --    end
-    --    PlayerbotsBroker:FinishActiveQuery(sender)
-    --end
 end
 
 -- for now the queue only allows a single query of one type to be ran at a time
@@ -300,6 +342,37 @@ function PlayerbotsBroker:GetQueries(name)
     return queryByBot
 end
 
+-- Stores report handlers per report type
+local _reportHandlers = {}
+
+-- Stores Query Complete handlers per  per bot, query type
+local _completeHandlers = {}
+local _statusUpdateHandlers = {}
+
+function PlayerbotsBroker:NotifyQueryComplete(qtype, name)
+    local handlers = PlayerbotsBroker:GetCompleteHandlers(qtype, name)
+    local count = getn(handlers)
+    if count > 0 then
+        for i=1, count do
+            handlers[i](name)
+        end
+    end
+end
+
+function PlayerbotsBroker:NotifyStatusUpdated(name, status)
+    local handlers = PlayerbotsBroker:GetStatusUpdateHandlers(name)
+    local count = getn(handlers)
+    if not status then
+        status = PlayerbotsBroker:GetBotStatus(name)
+    end
+    print("bot status online: " .. tostring(status.online))
+    if count > 0 then
+        for i=1, count do
+            handlers[i](status)
+        end
+    end
+end
+
 -- callback(type, name (bot), payload)
 function PlayerbotsBroker:RegisterCompleteHandler(qtype, name, callback)
     local array = PlayerbotsBroker:GetCompleteHandlers(qtype, name)
@@ -308,7 +381,23 @@ end
 
 function PlayerbotsBroker:UnregisterCompleteHandler(qtype,name, callback)
     local array = PlayerbotsBroker:GetCompleteHandlers(qtype, name)
+    local idx = _util:IndexOf(array, callback)
+    if idx > 0 then
+        tremove(array, idx)
+    end
+end
+
+function PlayerbotsBroker:RegisterStatusUpdateHandler(name, callback)
+    local array = PlayerbotsBroker:GetStatusUpdateHandlers(name)
     tinsert(array, callback)
+end
+
+function PlayerbotsBroker:UnregisterStatusUpdateHandler(name, callback)
+    local array = PlayerbotsBroker:GetStatusUpdateHandlers(name)
+    local idx = _util:IndexOf(array, callback)
+    if idx > 0 then
+        tremove(array, idx)
+    end
 end
 
 function PlayerbotsBroker:GetCompleteHandlers(qtype, name)
@@ -329,6 +418,20 @@ function PlayerbotsBroker:GetCompleteHandlers(qtype, name)
     return handlersByType
 end
 
+function PlayerbotsBroker:GetStatusUpdateHandlers(name)
+    if not _statusUpdateHandlers[name] then
+        _statusUpdateHandlers[name] = {}
+    end
+    local handlersByBot = _statusUpdateHandlers[name]
+    if not handlersByBot then
+        handlersByBot = {}
+        _statusUpdateHandlers[name] = handlersByBot
+    end
+    return handlersByBot
+end
+
+
+
 -----------------------------------------------------------------------------
 ----- QUERIES IMPL
 -----------------------------------------------------------------------------
@@ -343,57 +446,3 @@ end
 -----------------------------------------------------------------------------
 ----- NEW API END
 -----------------------------------------------------------------------------
-
-
-
--- ------------------ OLD API
-
-
--- mode: 0 STANDBY, 1 STATS, 2 INVENTORY
--- name: bot name
--- timeWindow: once at least one message is received, how long since last received message til the query is considered complete
--- callback: called when query is finished
-function PlayerbotsBroker:StartBotQuery(mode, name, timeWindow, callback) --
-  if mode < 1 or mode > 2 then return end
-  local bot = PlayerbotsPanel:GetBot(name)
-  if bot == nil then return end
-  if not bot.online then return end
-  if timeWindow == nil then timeWindow = 0.1 end -- default time window
-  local query = {    
-    mode = mode, 
-    name = name,
-    callback = callback,
-    anyMsgReceived = false,
-    lastMessageTime = nil,
-    timeWindow = timeWindow,
-  }
-  if botQueryQueues[name] == nil then
-    botQueryQueues[name] = {}
-  end
-
-  tinsert(botQueryQueues[name], query)
-  if botActiveQueries[name] == nil then
-    PlayerbotsBroker:StartNextBotQuery(name)
-  end
-end
-
-function PlayerbotsBroker:StartNextBotQuery(name)
-    if botQueryQueues[name] == nil then return end
-    local qt = botQueryQueues[name]
-    local qnum = getn(qt)
-    if qnum > 0 then
-        botActiveQueries[name] = tremove(qt, 1)
-        local active = botActiveQueries[name]
-        if active.mode == 1 then
-            SendChatMessage("stats", "WHISPER", nil, active.name)
-        end
-    end
-end
-
-
-
-
-
-
-
--- ------------------ OLD API

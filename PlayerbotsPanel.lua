@@ -63,6 +63,18 @@ PlayerbotsPanel.commands = {
                     _dbchar.bots = {}
                 end
             end
+        },
+        dumpStatus = {
+            name = "dumpstatus",
+            desc = "dumps status for all bots",
+            type = 'execute',
+            func = function() 
+                for k,bot in pairs(_dbchar.bots) do
+                    local status = _broker:GetBotStatus(bot.name)
+                    print("-----> " .. bot.name)
+                    print("online:" .. tostring(status.online))
+                end
+            end
         }
     }
 }
@@ -88,8 +100,12 @@ function PlayerbotsPanel:OnInitialize()
     _updateHandler:Init()
     _broker:Init(_dbchar.bots)
 
+
+
     self:CreateWindow()
     self:RegisterChatCommand("/pp", self.commands)
+    --self:RegisterEvent("PLAYER_LOGIN")
+    --self:RegisterEvent("PLAYER_LOGOUT")
     self:RegisterEvent("PLAYER_TARGET_CHANGED")
     self:RegisterEvent("UNIT_MODEL_CHANGED")
     self:RegisterEvent("PARTY_MEMBERS_CHANGED")
@@ -97,6 +113,7 @@ function PlayerbotsPanel:OnInitialize()
     self:RegisterEvent("PARTY_MEMBER_ENABLE")
     self:RegisterEvent("CHAT_MSG_WHISPER")
     self:RegisterEvent("CHAT_MSG_ADDON")
+    self:RegisterEvent("CHAT_MSG_SYSTEM")
     self:RegisterEvent("TRADE_CLOSED")
 
     PlayerbotsPanel:InitializeQueryHandlers()
@@ -105,14 +122,16 @@ end
 function PlayerbotsPanel:OnEnable()
     self:SetDebugging(true)
 
-    -- TEMP HACK
-    -- reset bots online status on login
-    for n,bot in pairs(_dbchar.bots) do
-        bot.online = false
-    end
-
     PlayerbotsFrame:Show()
     _updateHandler:shouldUpdateSelector()
+    print("onEnable")
+    _broker:OnEnable()
+end
+
+function PlayerbotsPanel:OnDisable()
+    self:SetDebugging(false)
+    print("onDisable")
+    _broker:OnDisable()
 end
 
 function PlayerbotsPanel:OnShow()
@@ -125,9 +144,7 @@ function PlayerbotsPanel:OnHide()
     PlaySound(_data.sounds.onAddonHide)
 end
 
-function PlayerbotsPanel:OnDisable()
-    self:SetDebugging(false) 
-end
+
 
 function PlayerbotsPanel:Update(elapsed)
     _updateHandler:Update(elapsed)
@@ -175,12 +192,25 @@ end
 function PlayerbotsPanel:UNIT_MODEL_CHANGED()
 end
 
+function PlayerbotsPanel:PLAYER_LOGIN()
+    _broker:PLAYER_LOGIN()
+end
+
+function PlayerbotsPanel:PLAYER_LOGOUT()
+    _broker:PLAYER_LOGOUT()
+end
+
 function PlayerbotsPanel:CHAT_MSG_WHISPER(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter, guid)
     _broker:CHAT_MSG_WHISPER(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter, guid)
 end
 
 function PlayerbotsPanel:CHAT_MSG_ADDON(prefix, message, channel, sender)
+    print("msg from: " .. sender .. " : " .. message)
     _broker:CHAT_MSG_ADDON(prefix, message, channel, sender)
+end
+
+function PlayerbotsPanel:CHAT_MSG_SYSTEM(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter)
+    --_broker:CHAT_MSG_SYSTEM(prefix, message, channel, sender)
 end
 
 function PlayerbotsPanel:GetBot(name)
@@ -241,9 +271,10 @@ end
 
 -- Update single bot
 function PlayerbotsPanel:UpdateBot(name, bot)
-    _broker:StartQuery(QUERY_TYPE.STATUS, name)
-    if bot.inParty and bot.online then
-        _broker:StartBotQuery(1, name, nil, nil)
+    --_broker:StartQuery(QUERY_TYPE.STATUS, name)
+    local status = _broker:GetBotStatus(name)
+
+    if status.party and status.online then
         if CanInspect(name, true) and CheckInteractDistance(name, 1) then
             NotifyInspect(name)
             for slot=1, 19 do
@@ -365,7 +396,9 @@ function PlayerbotsPanel:UpdateGearView(targetbotName)
         local bot = PlayerbotsPanel:GetBot(name)
         if bot == nil then return end
         
-        if bot.online and bot.inParty then
+        local status = _broker:GetBotStatus(name)
+
+        if status.online and status.party then
             PlayerbotsGearView.modelView:Show()
             PlayerbotsGearView.modelView:SetUnit(name)
             PlayerbotsGearView.modelView.bgTex:SetTexture(_data.raceData[bot.race].background)
@@ -377,7 +410,7 @@ function PlayerbotsPanel:UpdateGearView(targetbotName)
         statusStr = "Level " .. bot.level 
         _util:SetTextColor(PlayerbotsGearView.botDescription, _data.colors.gold)
       
-        if not bot.online then
+        if not status.online then
             statusStr = statusStr .. " (Cached)"
             _util:SetTextColor(PlayerbotsGearView.botDescription, _data.colors.gray)
         end
@@ -761,9 +794,10 @@ function PlayerbotsPanel:UpdateBotSelector()
     for k, bot in pairs(_dbchar.bots) do
         local isTarget = UnitName("target") == bot.name
         local selected = bot.selected
-        local inParty = bot.inParty
 
-        local online = bot.online
+        local status = _broker:GetBotStatus(bot.name)
+        local online = status.online
+        local inParty = status.party
         
         if botSelectorButtons[k] == nil then 
             botSelectorButtons[k] = CreateFrame("Frame", "ppBotSelector_" .. k, PlayerbotsPanel.botSelectorFrame)
