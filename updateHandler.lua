@@ -8,11 +8,7 @@ _updateHandler.onUpdate = {}
 _updateHandler.totalTime = 0
 
 local _util = PlayerbotsPanelUtil
-local _lastUpdate = 0.0
-local _updateRate = 0.05
 local _delayedCalls = {}
--- Selector frame (the list of bots) is refreshed in update loop if this counter > 0
-local _bShouldUpdateSelector = 0
 
 function PlayerbotsPanelUpdateHandler:Init()
     
@@ -41,15 +37,6 @@ function PlayerbotsPanelUpdateHandler:Update(elapsed)
         end
     end
   
-    _lastUpdate = _lastUpdate + elapsed
-    if(_lastUpdate > _updateRate) then
-      _lastUpdate = 0
-      if _bShouldUpdateSelector > 0 then
-        PlayerbotsPanel:UpdateBotSelector()
-        _bShouldUpdateSelector = _bShouldUpdateSelector - 1
-      end
-    end
-  
     local len = getn(_delayedCalls)
     for i = len, 1, -1 do
       local call = _delayedCalls[i]
@@ -58,13 +45,6 @@ function PlayerbotsPanelUpdateHandler:Update(elapsed)
         tremove(_delayedCalls, i)
       end
     end
-end
-
-function PlayerbotsPanelUpdateHandler:shouldUpdateSelector(times)
-  if times == nil or times == 0 then
-    times = 1
-  end
-  _bShouldUpdateSelector = _bShouldUpdateSelector + times
 end
 
 function PlayerbotsPanelUpdateHandler:DelayCall(seconds, func)

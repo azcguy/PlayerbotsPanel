@@ -132,18 +132,10 @@ function PlayerbotsBroker:Init(bots)
     _updateHandler:RegisterHandler(PlayerbotsBroker.OnUpdate)
 
     for name, bot in pairs(_bots) do
+        local status = PlayerbotsBroker:GetBotStatus(bot.name)
+        status.party = UnitInParty(bot.name) ~= nil and true or false
         Send(_ping, bot.name)
     end
-
-    --for name, bot in pairs(_bots) do
-    --    if bot then
-    --        local status = PlayerbotsBroker:GetBotStatus(bot.name)
-    --        if status.offline then
-    --            print("should ping bot")
-    --            PingBot(bot.name)
-    --        end
-    --    end
-    --end
 end
 
 function PlayerbotsBroker:OnEnable()
@@ -164,26 +156,6 @@ local function PingBot(name)
 end
 function PlayerbotsBroker:OnUpdate(elapsed)
     local time = _updateHandler.totalTime
-
-    for name, bot in pairs(_bots) do
-        if bot then
-            local status = PlayerbotsBroker:GetBotStatus(bot.name)
-            if status.online then
-                --if status.lastMessageTime + _pingFrequency < time then
-                --    PingBot(bot.name)
-                --end
-                --if status.lastMessageTime + _considerOfflineTime < time then
-                --    status.online = false
-                --    PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
-                --end
-            else
-                --if status.lastPing + _pingFrequency < time then
-                --    status.lastPing = time
-                --    PingBot(bot.name)
-                --end
-            end
-        end
-    end
 
     local closeWindow = _cfg.queryCloseWindow
     for id, query in pairs(_activeQueriesById) do
@@ -269,21 +241,16 @@ function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
             print("received from: " .. bot.name .. " msg: " .. message)
             local status = PlayerbotsBroker:GetBotStatus(bot.name)
             status.lastMessageTime = _updateHandler.totalTime
-            ---- any message from the bot is considered a ping and will switch on the online status
-            --if not status.online then
-            --    
-            --    status.online = true
-            --    PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
-            --end
-
             if message == _ping then
                 if not status.online then
                     status.online = true
+                    status.party = UnitInParty(bot.name) ~= nil and true or false
                     PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
                 end
             elseif message == _handshakeCode then
                 if not status.online then
                     status.online = true
+                    status.party = UnitInParty(bot.name) ~= nil and true or false
                     PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
                 end
                 Send(_handshakeCode, bot.name)
@@ -299,34 +266,34 @@ function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
 end
 
 function PlayerbotsBroker:CHAT_MSG_WHISPER(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter, guid)
-    if message == "Hello!" then
-        local bot = _bots[sender]
-        if bot then
-            bot.online = true
-            return 
-        end
-    end
-
-    if message == "Goodbye!" then
-        local bot = _bots[sender]
-        if bot then
-            bot.online = false
-            return 
-        end
-    end
-    local queries = _queries[sender]
-    if queries then
-        for qtype, query in pairs(queries) do -- iterate query types
-            if query then
-                if query.method == 1 then
-                    if query.onProgressLegacy then
-                        query.lastMessageTime = _updateHandler.totalTime
-                        query:onProgressLegacy(query, message)
-                    end
-                end
-            end
-        end
-    end
+    --if message == "Hello!" then
+    --    local bot = _bots[sender]
+    --    if bot then
+    --        bot.online = true
+    --        return 
+    --    end
+    --end
+--
+    --if message == "Goodbye!" then
+    --    local bot = _bots[sender]
+    --    if bot then
+    --        bot.online = false
+    --        return 
+    --    end
+    --end
+    --local queries = _queries[sender]
+    --if queries then
+    --    for qtype, query in pairs(queries) do -- iterate query types
+    --        if query then
+    --            if query.method == 1 then
+    --                if query.onProgressLegacy then
+    --                    query.lastMessageTime = _updateHandler.totalTime
+    --                    query:onProgressLegacy(query, message)
+    --                end
+    --            end
+    --        end
+    --    end
+    --end
 end
 
 -- for now the queue only allows a single query of one type to be ran at a time
@@ -365,10 +332,9 @@ function PlayerbotsBroker:NotifyStatusUpdated(name, status)
     if not status then
         status = PlayerbotsBroker:GetBotStatus(name)
     end
-    print("bot status online: " .. tostring(status.online))
     if count > 0 then
         for i=1, count do
-            handlers[i](status)
+            handlers[i](name)
         end
     end
 end
@@ -430,19 +396,25 @@ function PlayerbotsBroker:GetStatusUpdateHandlers(name)
     return handlersByBot
 end
 
+function PlayerbotsBroker:PARTY_MEMBERS_CHANGED()
+    for name, bot in pairs(_bots) do
+        local status = PlayerbotsBroker:GetBotStatus(name)
+        local inparty =  UnitInParty(name) ~= nil and true or false
+        if inparty ~= status.party then
+            status.party = inparty
+            PlayerbotsBroker:NotifyStatusUpdated(name, status)
+        end
+    end
+end
 
+function PlayerbotsBroker:PARTY_MEMBER_ENABLE()
+
+end
+
+function PlayerbotsBroker:PARTY_MEMBER_DISABLE(id)
+    print(id)
+end
 
 -----------------------------------------------------------------------------
 ----- QUERIES IMPL
------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
------------------------------------------------------------------------------
------ NEW API END
 -----------------------------------------------------------------------------

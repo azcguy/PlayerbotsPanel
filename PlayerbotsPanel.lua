@@ -73,6 +73,7 @@ PlayerbotsPanel.commands = {
                     local status = _broker:GetBotStatus(bot.name)
                     print("-----> " .. bot.name)
                     print("online:" .. tostring(status.online))
+                    print("party:" .. tostring(status.party))
                 end
             end
         }
@@ -100,8 +101,6 @@ function PlayerbotsPanel:OnInitialize()
     _updateHandler:Init()
     _broker:Init(_dbchar.bots)
 
-
-
     self:CreateWindow()
     self:RegisterChatCommand("/pp", self.commands)
     --self:RegisterEvent("PLAYER_LOGIN")
@@ -123,7 +122,7 @@ function PlayerbotsPanel:OnEnable()
     self:SetDebugging(true)
 
     PlayerbotsFrame:Show()
-    _updateHandler:shouldUpdateSelector()
+    PlayerbotsPanel:UpdateBotSelector()
     print("onEnable")
     _broker:OnEnable()
 end
@@ -137,14 +136,11 @@ end
 function PlayerbotsPanel:OnShow()
     PlaySound(_data.sounds.onAddonShow)
     PlayerbotsPanel:UpdateBots()
-    _updateHandler:shouldUpdateSelector()
 end
 
 function PlayerbotsPanel:OnHide()
     PlaySound(_data.sounds.onAddonHide)
 end
-
-
 
 function PlayerbotsPanel:Update(elapsed)
     _updateHandler:Update(elapsed)
@@ -166,27 +162,24 @@ function PlayerbotsPanel:PLAYER_TARGET_CHANGED()
 end
 
 function PlayerbotsPanel:PARTY_MEMBERS_CHANGED()
+    _broker:PARTY_MEMBERS_CHANGED()
     PlayerbotsPanel:UpdateBots()
-    _updateHandler:shouldUpdateSelector()
 end
 
 function PlayerbotsPanel:PARTY_MEMBER_ENABLE()
+    _broker:PARTY_MEMBER_ENABLE()
     PlayerbotsPanel:UpdateBots()
-    _updateHandler:shouldUpdateSelector()
 end
 
 function PlayerbotsPanel:PARTY_MEMBER_DISABLE()
-        _updateHandler:DelayCall(0.1, function()
-            PlayerbotsPanel:UpdateBots()
-            _updateHandler:shouldUpdateSelector() -- 3 times because the offline status is delayed for some reason
-    end)
+    _broker:PARTY_MEMBER_DISABLE()
 end
 
 function PlayerbotsPanel:TRADE_CLOSED()
-    _updateHandler:DelayCall(0.25, function()
-        PlayerbotsPanel:UpdateBots()
-        PlayerbotsPanel:RefreshSelection()
-    end)
+    --_updateHandler:DelayCall(0.25, function()
+    --    PlayerbotsPanel:UpdateBots()
+    --    PlayerbotsPanel:RefreshSelection()
+    --end)
 end
 
 function PlayerbotsPanel:UNIT_MODEL_CHANGED()
@@ -236,9 +229,6 @@ function PlayerbotsPanel:ExtractTargetData()
         class = UnitClass("target"),
         level = UnitLevel("target")
     }
-    if PlayerbotsPanel.targetData.isRegistered then
-        local _uguid = PlayerbotsPanel.targetData.guid
-    end
 end
 
 
@@ -299,7 +289,6 @@ function PlayerbotsPanel:UpdateBots()
     for k, bot in pairs(_dbchar.bots) do
         PlayerbotsPanel:UpdateBot(k, bot)
     end
-    _updateHandler:shouldUpdateSelector()
 end
 
 function PlayerbotsPanel:RegisterByName(name)
@@ -307,6 +296,7 @@ function PlayerbotsPanel:RegisterByName(name)
         _dbchar.bots[name] = PlayerbotsPanel:CreateBotData(name)
     end
     PlayerbotsPanel:UpdateBots()
+    PlayerbotsPanel:UpdateBotSelector()
     PlayerbotsPanel:SetSelectedBot(name)
 end
 
@@ -315,6 +305,7 @@ function PlayerbotsPanel:UnregisterByName(name)
         _dbchar.bots = _util:RemoveByKey(_dbchar.bots, name)
     end
     PlayerbotsPanel:ClearSelection()
+    PlayerbotsPanel:UpdateBotSelector()
 end
 
 function PlayerbotsPanel:RefreshSelection()
@@ -330,10 +321,12 @@ end
 function PlayerbotsPanel:ClearSelection()
     PlayerbotsPanel:UpdateBots()
     for name, bot in pairs(_dbchar.bots) do
-        bot.selected = false
+        if bot.selected then
+            bot.selected = false
+            PlayerbotsPanel:UpdateBotSelectorButton(name)
+        end
     end
     PlayerbotsPanel:UpdateGearView(nil)
-    _updateHandler:shouldUpdateSelector()
 end
 
 function PlayerbotsPanel:GetSelectedBot()
@@ -351,14 +344,19 @@ function PlayerbotsPanel:SetSelectedBot(botname)
     PlayerbotsPanel:UpdateBots()
     for name, bot in pairs(_dbchar.bots) do
         if name == botname then
-            bot.selected = true
+            if not bot.selected then
+                bot.selected = true
+                PlayerbotsPanel:UpdateBotSelectorButton(botname)
+            end
         else
-            bot.selected = false
+            if bot.selected then
+                bot.selected = false
+                PlayerbotsPanel:UpdateBotSelectorButton(bot.name)
+            end
         end
     end
 
     PlayerbotsPanel:UpdateGearView(botname)
-    _updateHandler:shouldUpdateSelector()
     PlaySound(_data.sounds.onBotSelect)
 end
 
@@ -371,14 +369,12 @@ function PlayerbotsPanel:OnClick()
 end
 
 -- supports NIL as arg, will clear everything
-function PlayerbotsPanel:UpdateGearView(targetbotName)
+function PlayerbotsPanel:UpdateGearView(name)
     -- get bot 
-    local name = nil
     local clearMode = false
-    if targetbotName == nil then 
+    if name == nil then 
       clearMode = true
     end
-    name = targetbotName
 
     if clearMode then
         PlayerbotsGearView.modelView:Hide()
@@ -398,11 +394,13 @@ function PlayerbotsPanel:UpdateGearView(targetbotName)
         
         local status = _broker:GetBotStatus(name)
 
-        if status.online and status.party then
+        if status.online  then
             PlayerbotsGearView.modelView:Show()
-            PlayerbotsGearView.modelView:SetUnit(name)
+            if status.party then
+                PlayerbotsGearView.modelView:SetUnit(name)
+                PlayerbotsGearView.dropFrame:Show()
+            end
             PlayerbotsGearView.modelView.bgTex:SetTexture(_data.raceData[bot.race].background)
-            PlayerbotsGearView.dropFrame:Show()
         else
             PlayerbotsGearView.modelView:Hide()
         end
@@ -772,230 +770,265 @@ function PlayerbotsPanel:CreateWindow()
     PlayerbotsPanel.botSelectorFrame:SetWidth(PlayerbotsPanel.botSelectorParentFrame:GetWidth()-18)
     PlayerbotsPanel.botSelectorFrame:SetHeight(1) 
 
-    _updateHandler:shouldUpdateSelector()
     PlayerbotsPanel:SetupTabs()
 end
 
 
 
 local botSelectorButtons = {}
+
+-- rather complicated frame structure
+--  - rootFrame
+--     - secureBtn
+--     - insecureBtn
+--     - overlayFrame
+--         - txtName
+--         - btnAdd
+--         - btnRemove
+--         - btnInvite
+
+-- secureBtn acts as unitframe, allows selection of units in game in safe manner
+-- insecureBtn is like an offline/out of reach, button that selects the CACHED bot data
+-- they swap depending on situation
+function PlayerbotsPanel:CreateBotSelectorButton(name)
+    local rootFrame = nil
+    
+    rootFrame = CreateFrame("Frame", nil, PlayerbotsPanel.botSelectorFrame)
+    botSelectorButtons[name] = rootFrame
+
+    rootFrame.statusUpdateHandler = function(name)
+        PlayerbotsPanel:UpdateBotSelectorButton(name)
+    end
+    _broker:RegisterStatusUpdateHandler(name, rootFrame.statusUpdateHandler)
+
+    local bot = PlayerbotsPanel:GetBot(name)
+
+    if rootFrame.secureBtn == nil then
+        rootFrame.secureBtn = CreateFrame("Button", "ppBotSelector_" .. name, rootFrame, "SecureUnitButtonTemplate")
+        rootFrame.secureBtn:SetAttribute("unit", bot.name)
+        rootFrame.secureBtn:SetAttribute("*type1", "target") -- Target unit on left click
+        rootFrame.secureBtn:SetAttribute("*type2", "togglemenu") -- Toggle units menu on left click
+        rootFrame.secureBtn:SetAttribute("*type3", "assist") -- On middle click, target 
+        rootFrame.secureBtn:RegisterForClicks("AnyUp", "AnyDown")
+        rootFrame.secureBtn:SetText(bot.name)
+    end
+
+    if rootFrame.insecureBtn == nil then
+        rootFrame.insecureBtn = CreateFrame("Button", nil, rootFrame)
+        rootFrame.insecureBtn:RegisterForClicks("AnyUp", "AnyDown")
+        rootFrame.insecureBtn:SetScript("OnClick", function(self, button, down)
+            PlayerbotsPanel:SetSelectedBot(bot.name)
+        end)
+    end
+
+    if rootFrame.overlayFrame == nil then
+        rootFrame.overlayFrame = CreateFrame("Frame", nil, rootFrame)
+    end
+    
+    local oFrame = rootFrame.overlayFrame
+    if oFrame.txtName == nil then
+        oFrame.txtName = oFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        oFrame.txtName:SetSize(100,20)
+        oFrame.txtName:SetJustifyH("LEFT")
+        oFrame.txtName:SetPoint("TOPLEFT", oFrame, 5, 0)
+    end
+
+    if oFrame.btnAdd == nil then
+        oFrame.btnAdd = CreateFrame("Button", nil, oFrame)
+        _tooltips:AddInfoTooltip(oFrame.btnAdd, _data.strings.tooltips.addBot)
+        oFrame.btnAdd:SetNormalTexture("Interface\\BUTTONS\\UI-AttributeButton-Encourage-Up")
+        oFrame.btnAdd:SetPushedTexture("Interface\\BUTTONS\\UI-AttributeButton-Encourage-Down.blp")
+        oFrame.btnAdd:SetHighlightTexture("Interface\\BUTTONS\\UI-AttributeButton-Encourage-Hilight.blp")
+        oFrame.btnAdd:SetScript("OnClick", function(self, button, down)
+            SendChatMessage(".playerbots bot add " .. name)
+            PlayerbotsPanel:RefreshSelection()
+        end)
+    end
+
+    if oFrame.btnInvite == nil then
+        oFrame.btnInvite = CreateFrame("Button", nil, oFrame)
+        oFrame.btnInvite:SetNormalTexture("Interface\\FriendsFrame\\UI-Toast-FriendRequestIcon.blp")
+        oFrame.btnInvite:SetPushedTexture("Interface\\FriendsFrame\\UI-Toast-FriendRequestIcon.blp")
+        _tooltips:AddInfoTooltip(oFrame.btnInvite, _data.strings.tooltips.inviteBot)
+        oFrame.btnInvite:SetScript("OnClick", function(self, button, down)
+            InviteUnit(name)
+            PlayerbotsPanel:RefreshSelection()
+        end)
+    end
+
+    if oFrame.btnUninvite == nil then
+        oFrame.btnUninvite = CreateFrame("Button", nil, oFrame)
+        oFrame.btnUninvite:SetNormalTexture("Interface\\BUTTONS\\UI-GroupLoot-Pass-Up.blp")
+        oFrame.btnUninvite:SetHighlightTexture("Interface\\BUTTONS\\UI-GroupLoot-Pass-Up.blp")
+        _tooltips:AddInfoTooltip(oFrame.btnUninvite,_data.strings.tooltips.uninviteBot )
+        oFrame.btnUninvite:SetScript("OnClick", function(self, button, down)
+            UninviteUnit(name)
+            PlayerbotsPanel:RefreshSelection()
+        end)
+    end
+
+    if oFrame.btnRemove == nil then
+        oFrame.btnRemove = CreateFrame("Button", nil, oFrame)
+        oFrame.btnRemove:SetNormalTexture("Interface\\BUTTONS\\UI-MinusButton-Up.blp")
+        oFrame.btnRemove:SetPushedTexture("Interface\\BUTTONS\\UI-MinusButton-Down.blp")
+        _tooltips:AddInfoTooltip(oFrame.btnRemove, _data.strings.tooltips.removeBot)
+        oFrame.btnRemove:SetScript("OnClick", function(self, button, down)
+            SendChatMessage(".playerbots bot remove " .. name)
+            PlayerbotsPanel:RefreshSelection()
+      end)
+    end
+
+    return rootFrame
+end
+
+function PlayerbotsPanel:UpdateBotSelectorButton(name)
+    local rootFrame = botSelectorButtons[name]
+    local bot = PlayerbotsPanel:GetBot(name)
+    local idx = rootFrame.ppidx
+    local width = rootFrame.ppwidth
+    local height = rootFrame.ppheight
+    local isTarget = UnitName("target") == bot.name
+    local selected = bot.selected
+
+    local status = _broker:GetBotStatus(bot.name)
+    local online = status.online
+    local inParty = status.party
+
+    local rootFrame = botSelectorButtons[name]
+    rootFrame:Show()
+    rootFrame:SetPoint("TOPLEFT", 5, height * idx * -1)
+    rootFrame:SetSize(width,height)
+
+    local secureBtn = rootFrame.secureBtn
+    secureBtn:SetSize(width,height)
+    secureBtn:SetPoint("TOPLEFT", 0, 0)
+
+    if inParty and not isTarget then -- use it only for selecting online, in party Bots, THAT ARE NOT A TARGET otherwise it should be hidden
+        secureBtn:Show()
+        secureBtn:SetHighlightTexture(ROOT_PATH .. "textures\\botListBtnHi.tga")
+        if online then
+            secureBtn:SetNormalTexture(ROOT_PATH .. "textures\\botListBtnNorm_InParty.tga")
+        else
+            secureBtn:SetNormalTexture(ROOT_PATH .. "textures\\botListBtnNorm_InPartyOffline.tga")
+        end
+    else
+        secureBtn:Hide()
+    end
+    
+    local insecureBtn = rootFrame.insecureBtn
+    insecureBtn:SetPoint("TOPLEFT", 0, 0)
+    insecureBtn:SetButtonState("NORMAL", false)
+    insecureBtn:SetSize(width,height)
+    insecureBtn:SetText(bot.name)
+
+    if inParty and not isTarget then
+        insecureBtn:Hide()
+    else
+        insecureBtn:Show()
+    end
+
+    insecureBtn:SetNormalTexture(ROOT_PATH .. "textures\\botListBtnNorm.tga")
+    insecureBtn:SetHighlightTexture(ROOT_PATH .. "textures\\botListBtnHi.tga")
+    if selected then
+        insecureBtn:SetButtonState("PUSHED", true)
+    end
+    
+    if online then
+        if inParty then
+            insecureBtn:SetNormalTexture(ROOT_PATH .. "textures\\botListBtnNorm_InParty.tga")
+            insecureBtn:SetPushedTexture(ROOT_PATH .. "textures\\botListBtnPush_inparty.tga")
+        else
+            insecureBtn:SetNormalTexture(ROOT_PATH .. "textures\\botListBtnNorm_online.tga")
+            insecureBtn:SetPushedTexture(ROOT_PATH .. "textures\\botListBtnPush_online.tga")
+        end
+    else
+        insecureBtn:SetNormalTexture(ROOT_PATH .. "textures\\botListBtnNorm_InPartyOffline.tga")
+        insecureBtn:SetPushedTexture(ROOT_PATH .. "textures\\botListBtnPush_Offline.tga")
+    end
+    
+    local oFrame = rootFrame.overlayFrame
+    oFrame:SetPoint("TOPLEFT", 0, 0)
+    oFrame:SetSize(width, height)
+    
+    oFrame.txtName:SetText(name .. " (" .. tostring(bot.level) .. ")")
+    _util:SetTextColorToClass(oFrame.txtName, bot.class)
+    
+    oFrame.btnAdd:SetSize(14,14)
+    oFrame.btnAdd:SetPoint("BOTTOMLEFT", 4, 5)
+    if inParty then
+        if online then
+            oFrame.btnAdd:Hide()
+        else
+            oFrame.btnAdd:Show()
+        end
+    else
+        if online then
+            oFrame.btnAdd:Hide()
+        else
+            oFrame.btnAdd:Show()
+        end
+    end
+    
+    oFrame.btnInvite:SetSize(14,14)
+    oFrame.btnInvite:SetPoint("BOTTOMLEFT", 20, 5)
+    if inParty then
+        oFrame.btnInvite:Hide()
+    else
+        oFrame.btnInvite:Show()
+    end
+
+    oFrame.btnUninvite:SetSize(12,12)
+    oFrame.btnUninvite:SetPoint("TOPRIGHT", -5, -5)
+    
+    if inParty then
+        oFrame.btnUninvite:Show()
+    else
+        oFrame.btnUninvite:Hide()
+    end 
+    
+    oFrame.btnRemove:SetSize(14,14)
+    oFrame.btnRemove:SetPoint("BOTTOMRIGHT", -5, 5)
+    
+    if inParty then
+        if online then
+            oFrame.btnRemove:Show()
+        else
+            oFrame.btnRemove:Hide()
+        end
+    else
+        oFrame.btnRemove:Show()
+    end
+end
+
+-- Called when :
+-- on load
+-- when the registered bots list changes
+-- when sorting changes
 function PlayerbotsPanel:UpdateBotSelector()
     local height = 40
     local width = 125
-    local i = 0
     
     -- clean up removed bots
-    for k, button in pairs(botSelectorButtons) do
-        if _dbchar.bots[k] == nil then
+    for name, button in pairs(botSelectorButtons) do
+        if _dbchar.bots[name] == nil then
             button:Hide()
         end
     end
   
-    for k, bot in pairs(_dbchar.bots) do
-        local isTarget = UnitName("target") == bot.name
-        local selected = bot.selected
-
-        local status = _broker:GetBotStatus(bot.name)
-        local online = status.online
-        local inParty = status.party
-        
-        if botSelectorButtons[k] == nil then 
-            botSelectorButtons[k] = CreateFrame("Frame", "ppBotSelector_" .. k, PlayerbotsPanel.botSelectorFrame)
+    local idx = 0
+    for name, bot in pairs(_dbchar.bots) do
+        local rootFrame = nil
+        if botSelectorButtons[name] == nil then 
+            PlayerbotsPanel:CreateBotSelectorButton(name)
         end
-    
-      -- rather complicated frame structure
-      --  - rootFrame
-      --     - secureBtn
-      --     - insecureBtn
-      --     - overlayFrame
-      --         - txtName
-      --         - btnAdd
-      --         - btnRemove
-      --         - btnInvite
-    
-      -- secureBtn acts as unitframe, allows selection of units in game in safe manner
-      -- insecureBtn is like an offline/out of reach, button that selects the CACHED bot data
-      -- they swap depending on situation
-    
-        local rootFrame = botSelectorButtons[k]
-        rootFrame:Show()
-        rootFrame:SetPoint("TOPLEFT", 5, height * i * -1)
-        rootFrame:SetSize(width,height)
-        
-        if rootFrame.secureBtn == nil then
-            rootFrame.secureBtn = CreateFrame("Button", "ppBotSelector_" .. k, rootFrame, "SecureUnitButtonTemplate")
-            rootFrame.secureBtn:SetPoint("TOPLEFT", 0, 0)
-        end
-      
-        local secureBtn = rootFrame.secureBtn
-        if inParty then -- use it only for selecting online, in party Bots, THAT ARE NOT A TARGET otherwise it should be hidden
-            if not isTarget then 
-                secureBtn:Show()
-                secureBtn:SetSize(width,height)
-                secureBtn:SetText(bot.name)
-                secureBtn:SetAttribute("unit", bot.name)
-                secureBtn:SetAttribute("*type1", "target") -- Target unit on left click
-                secureBtn:SetAttribute("*type2", "togglemenu") -- Toggle units menu on left click
-                secureBtn:SetAttribute("*type3", "assist") -- On middle click, target 
-                secureBtn:RegisterForClicks("AnyUp", "AnyDown")
-                secureBtn:SetHighlightTexture(ROOT_PATH .. "textures\\botListBtnHi.tga")
-                
-                if online then
-                    secureBtn:SetNormalTexture(ROOT_PATH .. "textures\\botListBtnNorm_InParty.tga")
-                else
-                    secureBtn:SetNormalTexture(ROOT_PATH .. "textures\\botListBtnNorm_InPartyOffline.tga")
-                end
-            else
-                secureBtn:Hide()
-            end
-        else
-            secureBtn:Hide()
-        end
-      
-        if rootFrame.insecureBtn == nil then
-            rootFrame.insecureBtn = CreateFrame("Button", nil, rootFrame)
-            rootFrame.insecureBtn:SetPoint("TOPLEFT", 0, 0)
-        end
-      
-        local insecureBtn = rootFrame.insecureBtn
-        
-        if inParty and not isTarget then
-            insecureBtn:Hide()
-        else
-            insecureBtn:Show()
-            insecureBtn:SetButtonState("NORMAL", false)
-            insecureBtn:SetSize(width,height)
-            insecureBtn:SetText(bot.name)
-            insecureBtn:RegisterForClicks("AnyUp", "AnyDown")
-            insecureBtn:SetScript("OnClick", function(self, button, down)
-                PlayerbotsPanel:SetSelectedBot(bot.name)
-            end)
-            insecureBtn:SetNormalTexture(ROOT_PATH .. "textures\\botListBtnNorm.tga")
-            insecureBtn:SetHighlightTexture(ROOT_PATH .. "textures\\botListBtnHi.tga")
-            if selected then
-                insecureBtn:SetButtonState("PUSHED", true)
-            end
-          
-            if online then
-                insecureBtn:SetNormalTexture(ROOT_PATH .. "textures\\botListBtnNorm_InParty.tga")
-                insecureBtn:SetPushedTexture(ROOT_PATH .. "textures\\botListBtnPush.tga")
-            else
-                insecureBtn:SetNormalTexture(ROOT_PATH .. "textures\\botListBtnNorm_InPartyOffline.tga")
-                insecureBtn:SetPushedTexture(ROOT_PATH .. "textures\\botListBtnPush_Offline.tga")
-            end
-        end
-      
-        if rootFrame.overlayFrame == nil then
-            rootFrame.overlayFrame = CreateFrame("Frame", nil, rootFrame)
-        end
-      
-        local oFrame = rootFrame.overlayFrame
-        oFrame:SetPoint("TOPLEFT", 0, 0)
-        oFrame:SetSize(width, height)
-      
-        if oFrame.txtName == nil then
-            oFrame.txtName = oFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            oFrame.txtName:SetSize(100,20)
-            oFrame.txtName:SetJustifyH("LEFT")
-            oFrame.txtName:SetPoint("TOPLEFT", oFrame, 5, 0)
-        end
-      
-        oFrame.txtName:SetText(k .. " (" .. tostring(bot.level) .. ")")
-        _util:SetTextColorToClass(oFrame.txtName, bot.class)
-      
-        if oFrame.btnAdd == nil then
-            oFrame.btnAdd = CreateFrame("Button", nil, oFrame)
-            _tooltips:AddInfoTooltip(oFrame.btnAdd, _data.strings.tooltips.addBot)
-            oFrame.btnAdd:SetNormalTexture("Interface\\BUTTONS\\UI-AttributeButton-Encourage-Up")
-            oFrame.btnAdd:SetPushedTexture("Interface\\BUTTONS\\UI-AttributeButton-Encourage-Down.blp")
-            oFrame.btnAdd:SetHighlightTexture("Interface\\BUTTONS\\UI-AttributeButton-Encourage-Hilight.blp")
-            oFrame.btnAdd:SetScript("OnClick", function(self, button, down)
-                SendChatMessage(".playerbots bot add " .. k)
-                PlayerbotsPanel:RefreshSelection()
-            end)
-        end
-      
-        oFrame.btnAdd:SetSize(14,14)
-        oFrame.btnAdd:SetPoint("BOTTOMLEFT", 4, 5)
-        if inParty then
-            if online then
-                oFrame.btnAdd:Hide()
-            else
-                oFrame.btnAdd:Show()
-            end
-        else
-            if online then
-                oFrame.btnAdd:Hide()
-            else
-                oFrame.btnAdd:Show()
-            end
-        end
-      
-        if oFrame.btnInvite == nil then
-            oFrame.btnInvite = CreateFrame("Button", nil, oFrame)
-            oFrame.btnInvite:SetNormalTexture("Interface\\FriendsFrame\\UI-Toast-FriendRequestIcon.blp")
-            oFrame.btnInvite:SetPushedTexture("Interface\\FriendsFrame\\UI-Toast-FriendRequestIcon.blp")
-            _tooltips:AddInfoTooltip(oFrame.btnInvite, _data.strings.tooltips.inviteBot)
-            oFrame.btnInvite:SetScript("OnClick", function(self, button, down)
-                InviteUnit(k)
-                PlayerbotsPanel:RefreshSelection()
-            end)
-        end
-        oFrame.btnInvite:SetSize(14,14)
-        oFrame.btnInvite:SetPoint("BOTTOMLEFT", 20, 5)
-        if inParty then
-            oFrame.btnInvite:Hide()
-        else
-            oFrame.btnInvite:Show()
-        end
-      
-        if oFrame.btnUninvite == nil then
-            oFrame.btnUninvite = CreateFrame("Button", nil, oFrame)
-            oFrame.btnUninvite:SetNormalTexture("Interface\\BUTTONS\\UI-GroupLoot-Pass-Up.blp")
-            oFrame.btnUninvite:SetHighlightTexture("Interface\\BUTTONS\\UI-GroupLoot-Pass-Up.blp")
-            _tooltips:AddInfoTooltip(oFrame.btnUninvite,_data.strings.tooltips.uninviteBot )
-            oFrame.btnUninvite:SetScript("OnClick", function(self, button, down)
-                UninviteUnit(k)
-                PlayerbotsPanel:RefreshSelection()
-            end)
-        end
-        oFrame.btnUninvite:SetSize(12,12)
-        oFrame.btnUninvite:SetPoint("TOPRIGHT", -5, -5)
-      
-        if inParty then
-            oFrame.btnUninvite:Show()
-        else
-            oFrame.btnUninvite:Hide()
-        end 
-      
-        if oFrame.btnRemove == nil then
-            oFrame.btnRemove = CreateFrame("Button", nil, oFrame)
-            oFrame.btnRemove:SetNormalTexture("Interface\\BUTTONS\\UI-MinusButton-Up.blp")
-            oFrame.btnRemove:SetPushedTexture("Interface\\BUTTONS\\UI-MinusButton-Down.blp")
-            _tooltips:AddInfoTooltip(oFrame.btnRemove, _data.strings.tooltips.removeBot)
-            oFrame.btnRemove:SetScript("OnClick", function(self, button, down)
-                SendChatMessage(".playerbots bot remove " .. k)
-                PlayerbotsPanel:RefreshSelection()
-          end)
-        end
-        oFrame.btnRemove:SetSize(14,14)
-        oFrame.btnRemove:SetPoint("BOTTOMRIGHT", -5, 5)
-      
-        if inParty then
-            if online then
-                oFrame.btnRemove:Show()
-            else
-                oFrame.btnRemove:Hide()
-            end
-        else
-            oFrame.btnRemove:Show()
-        end
-        i = i + 1
+        rootFrame = botSelectorButtons[name]
+        rootFrame.ppidx = idx
+        rootFrame.ppwidth = width
+        rootFrame.ppheight = height
+        PlayerbotsPanel:UpdateBotSelectorButton(name)
+        idx = idx + 1
     end
 end
-
-
-
 
 function PlayerbotsPanel:AddWindowStyling(frame)
     local sizeFactor = 48
