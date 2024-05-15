@@ -5,6 +5,35 @@ local _updateHandler = PlayerbotsPanelUpdateHandler
 local _bots = nil
 local _debug = AceLibrary:GetInstance("AceDebug-2.0")
 local _cfg = PlayerbotsPanelConfig
+local _pingFrequency = 1
+local _considerOfflineTime = 2
+local _nextQueryId = 0
+local _prefixCode = "pb8aj2" -- just something unique from other addons
+
+-- ============================================================================================
+
+local MSG_SEPARATOR = ":"
+local MSG_SEPARATOR_BYTE = string.byte(":")
+local MSG_HEADER = {}
+MSG_HEADER.SYSTEM = string.byte("s")
+MSG_HEADER.REPORT = string.byte("r")
+
+PlayerbotsBrokerReportType = {}
+local REPORT_TYPE = PlayerbotsBrokerReportType
+REPORT_TYPE.ITEM_EQUIPPED = string.byte("g") -- gear item equipped or unequipped
+REPORT_TYPE.CURRENCY = string.byte("c") -- currency changed
+REPORT_TYPE.INVENTORY = string.byte("i") -- inventory changed (bag changed, item added / removed / destroyed)
+REPORT_TYPE.TALENTS = string.byte("t") -- talent learned / spec changed / talents reset
+REPORT_TYPE.SPELLS = string.byte("s") -- spell learned
+REPORT_TYPE.QUEST = string.byte("q") -- single quest accepted, abandoned, changed, completed
+
+local SYS_MSG_TYPE = {}
+SYS_MSG_TYPE.HANDSHAKE = string.byte("h")
+SYS_MSG_TYPE.PING = string.byte("p")
+SYS_MSG_TYPE.LOGOUT = string.byte("l")
+
+-- ============================================================================================
+
 
 PlayerbotsBrokerQueryType = {}
 local QUERY_TYPE = PlayerbotsBrokerQueryType
@@ -23,26 +52,6 @@ local CMD_TYPE = PlayerbotsBrokerCommandType
 CMD_TYPE.SUMMON = 0 
 CMD_TYPE.STAY = 1
 CMD_TYPE.FOLLOW = 2
--- ..
-
-PlayerbotsBrokerReportType = {}
-local REPORT_TYPE = PlayerbotsBrokerReportType
---REPORT_TYPE.STATUS = 0 -- status changed
-REPORT_TYPE.CURRENCY = 1 -- currency changed
-REPORT_TYPE.GEAR = 2 -- gear changed (item equipped/ unequipped)
-REPORT_TYPE.INVENTORY = 3 -- inventory changed (bag changed, item added / removed / destroyed)
-REPORT_TYPE.TALENTS = 4 -- talent learned / spec changed / talents reset
-REPORT_TYPE.SPELLS = 5 -- spell learned
-REPORT_TYPE.QUEST = 6 -- single quest accepted, abandoned, changed, completed
-
-local _pingFrequency = 1
-local _considerOfflineTime = 2
-local _nextQueryId = 0
-local _prefixCode = "pb8aj2" -- just something unique from other addons
-local _handshakeCode = "hs"
-local _logoutCode = "lo"
-local _ping = "p"
-local _report = "r"
 
 -- Stores queues per query type, per bot
 -- _queries[botName][QUERY_TYPE]
@@ -122,8 +131,18 @@ function PlayerbotsBroker:print(t)
     DEFAULT_CHAT_FRAME:AddMessage("pp_broker: " .. t)
 end
 
-local function Send(msg, name)
-    SendAddonMessage(_prefixCode, msg, "WHISPER", name)
+-- ID must be uint16
+local function GenerateMessage(target, header, subtype, id, payload)
+    if not id then id = 0 end
+    local msg = table.concat({
+        string.char(header),
+        MSG_SEPARATOR,
+        string.char(subtype),
+        MSG_SEPARATOR,
+        string.format("%05d", id),
+        MSG_SEPARATOR,
+        payload})
+    SendAddonMessage(_prefixCode, msg, "WHISPER", target)
 end
 
 -- bots - reference to _dbchar.bots
@@ -134,26 +153,22 @@ function PlayerbotsBroker:Init(bots)
     for name, bot in pairs(_bots) do
         local status = PlayerbotsBroker:GetBotStatus(bot.name)
         status.party = UnitInParty(bot.name) ~= nil and true or false
-        Send(_ping, bot.name)
+        GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.PING)
     end
 end
 
 function PlayerbotsBroker:OnEnable()
     for name, bot in pairs(_bots) do
-        Send(_ping, bot.name)
+        GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.PING)
     end
 end
 
 function PlayerbotsBroker:OnDisable()
     for name, bot in pairs(_bots) do
-        Send(_logoutCode, bot.name)
+        GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.LOGOUT)
     end
 end
 
-local function PingBot(name)
-    print("pinging bot: " .. name)
-    Send(_ping, name)
-end
 function PlayerbotsBroker:OnUpdate(elapsed)
     local time = _updateHandler.totalTime
 
@@ -234,31 +249,66 @@ function PlayerbotsBroker:SendWhisper(msg, name)
     SendChatMessage(msg, "WHISPER", nil, name)
 end
 
+local SYS_MSG_HANDLERS = {}
+SYS_MSG_HANDLERS[SYS_MSG_TYPE.HANDSHAKE] = function(id,payload, bot, status)
+    if not status.online then
+        status.online = true
+        status.party = UnitInParty(bot.name) ~= nil and true or false
+        PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+    end
+    GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.HANDSHAKE)
+end
+
+SYS_MSG_HANDLERS[SYS_MSG_TYPE.PING] = function(id,payload, bot, status)
+    if not status.online then
+        status.online = true
+        status.party = UnitInParty(bot.name) ~= nil and true or false
+        PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+    end
+end
+
+SYS_MSG_HANDLERS[SYS_MSG_TYPE.LOGOUT] = function(id,payload, bot, status)
+    if status.online then
+        status.online = false
+        PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+    end
+end
+
+local REP_MSG_HANDLERS = {}
+REP_MSG_HANDLERS[REPORT_TYPE.ITEM_EQUIPPED] = function(id,payload,bot,status) end
+REP_MSG_HANDLERS[REPORT_TYPE.CURRENCY] = function(id,payload,bot,status) end
+REP_MSG_HANDLERS[REPORT_TYPE.INVENTORY] = function(id,payload,bot,status) end
+REP_MSG_HANDLERS[REPORT_TYPE.TALENTS] = function(id,payload,bot,status) end
+REP_MSG_HANDLERS[REPORT_TYPE.SPELLS] = function(id,payload,bot,status) end
+REP_MSG_HANDLERS[REPORT_TYPE.QUEST] = function(id,payload,bot,status) end
+
+local MSG_HANDLERS = {}
+MSG_HANDLERS[MSG_HEADER.SYSTEM] = SYS_MSG_HANDLERS
+MSG_HANDLERS[MSG_HEADER.REPORT] = REP_MSG_HANDLERS
+
 function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
     if prefix == _prefixCode then 
         local bot = _bots[sender]
         if bot then
-            print("received from: " .. bot.name .. " msg: " .. message)
+            print(bot.name .. " >> " .. message)
             local status = PlayerbotsBroker:GetBotStatus(bot.name)
+            if not status then return end
             status.lastMessageTime = _updateHandler.totalTime
-            if message == _ping then
-                if not status.online then
-                    status.online = true
-                    status.party = UnitInParty(bot.name) ~= nil and true or false
-                    PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
-                end
-            elseif message == _handshakeCode then
-                if not status.online then
-                    status.online = true
-                    status.party = UnitInParty(bot.name) ~= nil and true or false
-                    PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
-                end
-                Send(_handshakeCode, bot.name)
-                --PlayerbotsBroker:NotifyQueryComplete(QUERY_TYPE.STATUS, bot.name)
-            elseif message == _logoutCode then
-                if status.online then
-                    status.online = false
-                    PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+
+            -- confirm that the message has valid format
+            local header, separator1, subtype, separator2 = strbyte(message, 1, 4)
+            local separator3 = strbyte(message, 10)
+            -- 1 [HEADER] 2 [SEPARATOR] 3 [SUBTYPE] 4 [SEPARATOR] 5 [ID1] 6 [ID2] 7 [ID3] 8 [ID4] 9 [ID5] 10 [SEPARATOR] [PAYLOAD]
+            -- s:p:65000:payload
+            if separator1 == MSG_SEPARATOR_BYTE and separator2 == MSG_SEPARATOR_BYTE and separator3 == MSG_SEPARATOR_BYTE then
+                local handlers = MSG_HANDLERS[header]
+                if handlers then
+                    local handler = handlers[subtype]
+                    if handler then
+                        local id = tonumber(strsub(5, 9))
+                        local payload = strsub(message, 7)
+                        handler(id, payload, bot, status)
+                    end
                 end
             end
         end
@@ -266,34 +316,6 @@ function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
 end
 
 function PlayerbotsBroker:CHAT_MSG_WHISPER(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter, guid)
-    --if message == "Hello!" then
-    --    local bot = _bots[sender]
-    --    if bot then
-    --        bot.online = true
-    --        return 
-    --    end
-    --end
---
-    --if message == "Goodbye!" then
-    --    local bot = _bots[sender]
-    --    if bot then
-    --        bot.online = false
-    --        return 
-    --    end
-    --end
-    --local queries = _queries[sender]
-    --if queries then
-    --    for qtype, query in pairs(queries) do -- iterate query types
-    --        if query then
-    --            if query.method == 1 then
-    --                if query.onProgressLegacy then
-    --                    query.lastMessageTime = _updateHandler.totalTime
-    --                    query:onProgressLegacy(query, message)
-    --                end
-    --            end
-    --        end
-    --    end
-    --end
 end
 
 -- for now the queue only allows a single query of one type to be ran at a time

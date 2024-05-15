@@ -198,7 +198,6 @@ function PlayerbotsPanel:CHAT_MSG_WHISPER(message, sender, language, channelStri
 end
 
 function PlayerbotsPanel:CHAT_MSG_ADDON(prefix, message, channel, sender)
-    print("msg from: " .. sender .. " : " .. message)
     _broker:CHAT_MSG_ADDON(prefix, message, channel, sender)
 end
 
