@@ -22,6 +22,17 @@ function PlayerbotsPanelUtil:Where(_table, predicate)
     end
 end
 
+function PlayerbotsPanelUtil:FindIndex(_table, obj)
+    local t = 1
+    for k,v in pairs(_table) do
+        if v == obj then
+            return t
+        end    
+        t = t + 1
+    end
+    return -1
+end
+
 function PlayerbotsPanelUtil:IndexOf(_table, predicate)
     local t = 1
     for k,v in pairs(_table) do

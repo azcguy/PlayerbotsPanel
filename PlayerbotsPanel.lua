@@ -12,8 +12,7 @@ local _broker = PlayerbotsBroker
 local _tooltips = PlayerbotsPanelTooltips
 local _dbchar = nil
 local _dbaccount = nil
-local QUERY_TYPE = PlayerbotsBrokerQueryType
-local REPORT_TYPE = PlayerbotsBrokerReportType
+local CALLBACK_TYPE = PlayerbotsBrokerCallbackType
 
 -- references to tab objects that will be initialized, declared in corresponding files
 PlayerbotsPanel.tabInitList = 
@@ -238,7 +237,7 @@ function PlayerbotsPanel:CreateBotData(name)
     end
         
     if _dbchar.bots[name] then
-        error("Bot ".. name .. " is already registered!")
+        print("Bot ".. name .. " is already registered!")
         return
     end
     
@@ -260,7 +259,6 @@ end
 
 -- Update single bot
 function PlayerbotsPanel:UpdateBot(name, bot)
-    --_broker:StartQuery(QUERY_TYPE.STATUS, name)
     local status = _broker:GetBotStatus(name)
 
     if status.party and status.online then
@@ -269,8 +267,8 @@ function PlayerbotsPanel:UpdateBot(name, bot)
             for slot=1, 19 do
                 bot.items[slot] = {}
                 local item = bot.items[slot]
-                item.id = GetInventoryItemID(name, slot)
-                if item.id ~= nil then
+                item.link = GetInventoryItemLink(name, slot)
+                if item.link ~= nil then
                     item.count = GetInventoryItemCount(name, slot)
                 end
             end
@@ -367,6 +365,35 @@ function PlayerbotsPanel:OnClick()
     end
 end
 
+local function UpdateGearSlot(bot, slotNum)
+    local slot = PlayerbotsGearView.slots[slotNum + 1]
+    local botItem = nil
+
+    if bot then
+        botItem = bot.items[slotNum]
+    end
+
+    if bot == nil or botItem == nil or botItem.link == nil then -- if empty
+        slot.item = nil
+        slot.itemTex:Hide()
+        slot.qTex:Hide()
+    else 
+        slot.bot = bot
+        if slot.item == nil then
+            slot.item = {}
+        end
+
+        local sitem = slot.item
+        sitem.name, sitem.link, sitem.quality, sitem.iLevel, sitem.reqLevel, sitem.class, sitem.subclass, sitem.maxStack, sitem.equipSlot, sitem.texture, sitem.vendorPrice = GetItemInfo(botItem.link)
+        slot.itemTex:Show()
+        slot.itemTex:SetTexture(sitem.texture)
+        local r, g, b, _ = GetItemQualityColor(sitem.quality)
+        slot.qColor = { r = r, g = g, b = b }
+        slot.qTex:Show()
+        slot.qTex:SetVertexColor(r,g,b)
+    end
+end
+
 -- supports NIL as arg, will clear everything
 function PlayerbotsPanel:UpdateGearView(name)
     -- get bot 
@@ -381,11 +408,7 @@ function PlayerbotsPanel:UpdateGearView(name)
         PlayerbotsGearView.botDescription:SetText("")
         PlayerbotsGearView.dropFrame:Hide()
         for i=1, 19 do 
-            local slot = PlayerbotsGearView.slots[i + 1]
-            slot.item = nil
-            slot.bot = nil
-            slot.itemTex:Hide()
-            slot.qTex:Hide()
+            UpdateGearSlot(nil, i)
         end
     else
         local bot = PlayerbotsPanel:GetBot(name)
@@ -427,25 +450,7 @@ function PlayerbotsPanel:UpdateGearView(name)
         end
       
         for i=1, 19 do 
-            local slot = PlayerbotsGearView.slots[i + 1]
-            local botItem = bot.items[i]
-            slot.bot = bot
-            if botItem == nil or botItem.id == nil then -- if empty
-                slot.item = nil
-                slot.itemTex:Hide()
-                slot.qTex:Hide()
-            else 
-                slot.item = {}
-                local sitem = slot.item
-                sitem.id = botItem.id
-                sitem.name, sitem.link, sitem.quality, sitem.iLevel, sitem.reqLevel, sitem.class, sitem.subclass, sitem.maxStack, sitem.equipSlot, sitem.texture, sitem.vendorPrice = GetItemInfo(botItem.id)
-                slot.itemTex:Show()
-                slot.itemTex:SetTexture(sitem.texture)
-                local r, g, b, _ = GetItemQualityColor(sitem.quality)
-                slot.qColor = { r = r, g = g, b = b }
-                slot.qTex:Show()
-                slot.qTex:SetVertexColor(r,g,b)
-            end
+            UpdateGearSlot(bot, i)
         end
     end
 end
@@ -467,9 +472,9 @@ function PlayerbotsPanel:SetupGearSlot(id, x, y)
     slot:SetSize(slotSize, slotSize)
     slot:SetScript("OnEnter", function(self, motion)
         slot.hitex:Show()
-        if slot.item ~= nil then
+        if slot.item ~= nil and slot.item.link ~= nil then
             _tooltips.tooltip:SetOwner(slot, "ANCHOR_RIGHT")
-            _tooltips.tooltip:SetHyperlink("item:".. tostring(slot.item.id))
+            _tooltips.tooltip:SetHyperlink(slot.item.link)
             slot.hitex:SetVertexColor(slot.qColor.r, slot.qColor.g, slot.qColor.b)
         end
     end)
@@ -694,47 +699,56 @@ function PlayerbotsPanel:SetupGearFrame()
     -- left column
     local slotPosY = -32
     local slotPosX = 5
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_HEAD + 1, slotPosX, slotPosY)
+    local intOffset = 1
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_HEAD + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_NECK + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_NECK+ intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_SHOULDER + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_SHOULDER + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_BACK + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_BACK + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_CHEST + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_CHEST + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_BODY + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_BODY + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_TABARD + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_TABARD + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_WRIST + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_WRIST + intOffset, slotPosX, slotPosY)
     -- lower row
     slotPosX = 48
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_MAINHAND + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_MAINHAND + intOffset, slotPosX, slotPosY)
     slotPosX = slotPosX + slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_OFFHAND + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_OFFHAND + intOffset, slotPosX, slotPosY)
     slotPosX = slotPosX + slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_RANGED + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_RANGED + intOffset, slotPosX, slotPosY)
     -- right column
     slotPosY = -32
     slotPosX = 172
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_HAND + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_HAND + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_WAIST + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_WAIST + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_LEGS + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_LEGS + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_FEET + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_FEET + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_FINGER1 + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_FINGER1 + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_FINGER2 + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_FINGER2 + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_TRINKET1 + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_TRINKET1 + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_TRINKET2 + 1, slotPosX, slotPosY)
+    PlayerbotsPanel:SetupGearSlot(INVSLOT_TRINKET2 + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
+
+    PlayerbotsGearView.onUpdatedEquipSlot = function(bot, slotNum, itemLink)
+        if bot.selected then 
+            UpdateGearSlot(bot, slotNum)
+        end
+    end
+
+    _broker:RegisterGlobalCallback(CALLBACK_TYPE.UPDATED_EQUIP_SLOT, PlayerbotsGearView.onUpdatedEquipSlot)
 
 end
 
@@ -795,10 +809,10 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
     rootFrame = CreateFrame("Frame", nil, PlayerbotsPanel.botSelectorFrame)
     botSelectorButtons[name] = rootFrame
 
-    rootFrame.statusUpdateHandler = function(name)
-        PlayerbotsPanel:UpdateBotSelectorButton(name)
+    rootFrame.statusUpdateHandler = function(bot, status)
+        PlayerbotsPanel:UpdateBotSelectorButton(bot.name)
     end
-    _broker:RegisterStatusUpdateHandler(name, rootFrame.statusUpdateHandler)
+    _broker:RegisterCallback(CALLBACK_TYPE.UPDATED_STATUS, name, rootFrame.statusUpdateHandler)
 
     local bot = PlayerbotsPanel:GetBot(name)
 

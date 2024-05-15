@@ -9,6 +9,109 @@ local _pingFrequency = 1
 local _considerOfflineTime = 2
 local _nextQueryId = 0
 local _prefixCode = "pb8aj2" -- just something unique from other addons
+local NULL_LINK = "~"
+
+-- ============================================================================================
+-- ============== PUBLIC API
+-- ============================================================================================
+
+PlayerbotsBrokerCallbackType = {}
+local CALLBACK_TYPE = PlayerbotsBrokerCallbackType
+local _callbacks = {} -- callbacks PER bot
+local _globalCallbacks = {} -- callbacks called for ANY bot
+local _globalCallbackSymbol = "@"
+
+-- UPDATED_STATUS (bot, status)                 // Online/offline/party
+CALLBACK_TYPE.UPDATED_STATUS = {}
+-- UPDATED_EQUIP_SLOT (bot, slotNum)            // bot equips a single item
+CALLBACK_TYPE.UPDATED_EQUIP_SLOT = {}
+-- UPDATED_EQUIPMENT (bot)                      // full equipment update completed
+CALLBACK_TYPE.UPDATED_EQUIPMENT = {}
+
+local function GetCallbackArray(ctype, name)
+    local cbs = _callbacks[name]
+    if not cbs then
+        cbs = {}
+        _callbacks[name] = cbs
+    end
+
+    local array = cbs[ctype]
+    if not array then
+        array = {}
+        cbs[ctype] = array
+    end
+    return array
+end
+
+local function GetGlobalCallbackArray(ctype)
+    local array = _globalCallbacks[ctype]
+    if not array then
+        array = {}
+        _globalCallbacks[ctype] = array
+    end
+    return array
+end
+
+function PlayerbotsBroker:RegisterGlobalCallback(ctype, callback)
+    if not ctype then return end
+    if not callback then return end
+    local array = GetGlobalCallbackArray(ctype)
+    tinsert(array, callback)
+end
+
+function PlayerbotsBroker:UnregisterGlobalCallback(ctype, callback)
+    if not ctype then return end
+    if not callback then return end
+    local array = GetGlobalCallbackArray(ctype)
+    local idx = _util:FindIndex(array, callback)
+    if idx > 0 then
+        tremove(array, idx)
+    end
+end
+
+function PlayerbotsBroker:RegisterCallback(ctype, botName, callback)
+    if not ctype then return end
+    if not botName then return end
+    if not callback then return end
+    
+    local array = GetCallbackArray(ctype, botName)
+    tinsert(array, callback)
+end
+
+function PlayerbotsBroker:UnegisterCallback(ctype, botName, callback)
+    if not ctype then return end
+    if not botName then return end
+    if not callback then return end
+    local array = GetCallbackArray(ctype, botName)
+    local idx = _util:FindIndex(array, callback)
+    if idx > 0 then
+        tremove(array, idx)
+    end
+end
+
+local function InvokeCallback(ctype, name, arg1, arg2, arg3, arg4)
+    if not ctype then return end
+    if not name then return end
+
+    local array = GetCallbackArray(ctype, name)
+    local count = getn(array)
+    for i=1, count do
+        local callback = array[i]
+        if callback then
+            callback(arg1, arg2, arg3, arg4)
+        end
+    end
+
+    array = GetGlobalCallbackArray(ctype)
+    count = getn(array)
+    for i=1, count do
+        local callback = array[i]
+        if callback then
+            callback(arg1, arg2, arg3, arg4)
+        end
+    end
+
+end
 
 -- ============================================================================================
 
@@ -33,7 +136,6 @@ SYS_MSG_TYPE.PING = string.byte("p")
 SYS_MSG_TYPE.LOGOUT = string.byte("l")
 
 -- ============================================================================================
-
 
 PlayerbotsBrokerQueryType = {}
 local QUERY_TYPE = PlayerbotsBrokerQueryType
@@ -127,9 +229,9 @@ function PlayerbotsBroker:GetBotStatus(name)
     return status
 end
 
-function PlayerbotsBroker:print(t)
-    DEFAULT_CHAT_FRAME:AddMessage("pp_broker: " .. t)
-end
+--function PlayerbotsBroker:print(t)
+--    DEFAULT_CHAT_FRAME:AddMessage("pp_broker: " .. t)
+--end
 
 -- ID must be uint16
 local function GenerateMessage(target, header, subtype, id, payload)
@@ -139,7 +241,7 @@ local function GenerateMessage(target, header, subtype, id, payload)
         MSG_SEPARATOR,
         string.char(subtype),
         MSG_SEPARATOR,
-        string.format("%05d", id),
+        string.format("%03d", id),
         MSG_SEPARATOR,
         payload})
     SendAddonMessage(_prefixCode, msg, "WHISPER", target)
@@ -254,7 +356,7 @@ SYS_MSG_HANDLERS[SYS_MSG_TYPE.HANDSHAKE] = function(id,payload, bot, status)
     if not status.online then
         status.online = true
         status.party = UnitInParty(bot.name) ~= nil and true or false
-        PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+        InvokeCallback(CALLBACK_TYPE.UPDATED_STATUS, bot.name, bot, status)
     end
     GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.HANDSHAKE)
 end
@@ -263,19 +365,30 @@ SYS_MSG_HANDLERS[SYS_MSG_TYPE.PING] = function(id,payload, bot, status)
     if not status.online then
         status.online = true
         status.party = UnitInParty(bot.name) ~= nil and true or false
-        PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+        InvokeCallback(CALLBACK_TYPE.UPDATED_STATUS, bot.name , bot, status)
     end
 end
 
 SYS_MSG_HANDLERS[SYS_MSG_TYPE.LOGOUT] = function(id,payload, bot, status)
     if status.online then
         status.online = false
-        PlayerbotsBroker:NotifyStatusUpdated(bot.name, status)
+        InvokeCallback(CALLBACK_TYPE.UPDATED_STATUS, bot.name , bot, status)
     end
 end
 
 local REP_MSG_HANDLERS = {}
-REP_MSG_HANDLERS[REPORT_TYPE.ITEM_EQUIPPED] = function(id,payload,bot,status) end
+REP_MSG_HANDLERS[REPORT_TYPE.ITEM_EQUIPPED] = function(id,payload,bot,status)
+    local slotNum, countNum, link = strsplit(MSG_SEPARATOR, payload, 3)
+    slotNum = tonumber(slotNum)
+    countNum = tonumber(countNum)
+    local item = bot.items[slotNum]
+    item.link = link 
+    if link == NULL_LINK then
+        item.link = nil
+    end
+    item.count = countNum
+    InvokeCallback(CALLBACK_TYPE.UPDATED_EQUIP_SLOT, bot.name, bot, slotNum)
+end
 REP_MSG_HANDLERS[REPORT_TYPE.CURRENCY] = function(id,payload,bot,status) end
 REP_MSG_HANDLERS[REPORT_TYPE.INVENTORY] = function(id,payload,bot,status) end
 REP_MSG_HANDLERS[REPORT_TYPE.TALENTS] = function(id,payload,bot,status) end
@@ -290,14 +403,14 @@ function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
     if prefix == _prefixCode then 
         local bot = _bots[sender]
         if bot then
-            print(bot.name .. " >> " .. message)
+            _debug:LevelDebug(2, bot.name .. " >> " .. message)
             local status = PlayerbotsBroker:GetBotStatus(bot.name)
             if not status then return end
             status.lastMessageTime = _updateHandler.totalTime
 
             -- confirm that the message has valid format
             local header, separator1, subtype, separator2 = strbyte(message, 1, 4)
-            local separator3 = strbyte(message, 10)
+            local separator3 = strbyte(message, 8)
             -- 1 [HEADER] 2 [SEPARATOR] 3 [SUBTYPE] 4 [SEPARATOR] 5 [ID1] 6 [ID2] 7 [ID3] 8 [ID4] 9 [ID5] 10 [SEPARATOR] [PAYLOAD]
             -- s:p:65000:payload
             if separator1 == MSG_SEPARATOR_BYTE and separator2 == MSG_SEPARATOR_BYTE and separator3 == MSG_SEPARATOR_BYTE then
@@ -305,8 +418,8 @@ function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
                 if handlers then
                     local handler = handlers[subtype]
                     if handler then
-                        local id = tonumber(strsub(5, 9))
-                        local payload = strsub(message, 7)
+                        local id = tonumber(strsub(5, 7))
+                        local payload = strsub(message, 9)
                         handler(id, payload, bot, status)
                     end
                 end
@@ -331,100 +444,13 @@ function PlayerbotsBroker:GetQueries(name)
     return queryByBot
 end
 
--- Stores report handlers per report type
-local _reportHandlers = {}
-
--- Stores Query Complete handlers per  per bot, query type
-local _completeHandlers = {}
-local _statusUpdateHandlers = {}
-
-function PlayerbotsBroker:NotifyQueryComplete(qtype, name)
-    local handlers = PlayerbotsBroker:GetCompleteHandlers(qtype, name)
-    local count = getn(handlers)
-    if count > 0 then
-        for i=1, count do
-            handlers[i](name)
-        end
-    end
-end
-
-function PlayerbotsBroker:NotifyStatusUpdated(name, status)
-    local handlers = PlayerbotsBroker:GetStatusUpdateHandlers(name)
-    local count = getn(handlers)
-    if not status then
-        status = PlayerbotsBroker:GetBotStatus(name)
-    end
-    if count > 0 then
-        for i=1, count do
-            handlers[i](name)
-        end
-    end
-end
-
--- callback(type, name (bot), payload)
-function PlayerbotsBroker:RegisterCompleteHandler(qtype, name, callback)
-    local array = PlayerbotsBroker:GetCompleteHandlers(qtype, name)
-    tinsert(array, callback)
-end
-
-function PlayerbotsBroker:UnregisterCompleteHandler(qtype,name, callback)
-    local array = PlayerbotsBroker:GetCompleteHandlers(qtype, name)
-    local idx = _util:IndexOf(array, callback)
-    if idx > 0 then
-        tremove(array, idx)
-    end
-end
-
-function PlayerbotsBroker:RegisterStatusUpdateHandler(name, callback)
-    local array = PlayerbotsBroker:GetStatusUpdateHandlers(name)
-    tinsert(array, callback)
-end
-
-function PlayerbotsBroker:UnregisterStatusUpdateHandler(name, callback)
-    local array = PlayerbotsBroker:GetStatusUpdateHandlers(name)
-    local idx = _util:IndexOf(array, callback)
-    if idx > 0 then
-        tremove(array, idx)
-    end
-end
-
-function PlayerbotsBroker:GetCompleteHandlers(qtype, name)
-    if not _completeHandlers[name] then
-        _completeHandlers[name] = {}
-    end
-    local handlersByBot = _completeHandlers[name]
-    if not handlersByBot then
-        handlersByBot = {}
-        _completeHandlers[name] = handlersByBot
-    end
-
-    local handlersByType = handlersByBot[qtype]
-    if not handlersByType then
-        handlersByType = {}
-        handlersByBot[qtype] = handlersByType
-    end
-    return handlersByType
-end
-
-function PlayerbotsBroker:GetStatusUpdateHandlers(name)
-    if not _statusUpdateHandlers[name] then
-        _statusUpdateHandlers[name] = {}
-    end
-    local handlersByBot = _statusUpdateHandlers[name]
-    if not handlersByBot then
-        handlersByBot = {}
-        _statusUpdateHandlers[name] = handlersByBot
-    end
-    return handlersByBot
-end
-
 function PlayerbotsBroker:PARTY_MEMBERS_CHANGED()
     for name, bot in pairs(_bots) do
         local status = PlayerbotsBroker:GetBotStatus(name)
         local inparty =  UnitInParty(name) ~= nil and true or false
         if inparty ~= status.party then
             status.party = inparty
-            PlayerbotsBroker:NotifyStatusUpdated(name, status)
+            InvokeCallback(CALLBACK_TYPE.UPDATED_STATUS, bot.name , bot, status)
         end
     end
 end
