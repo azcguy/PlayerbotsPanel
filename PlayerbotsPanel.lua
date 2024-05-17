@@ -10,9 +10,10 @@ local _debug = AceLibrary:GetInstance("AceDebug-2.0")
 local _updateHandler = PlayerbotsPanelUpdateHandler
 local _broker = PlayerbotsBroker
 local _tooltips = PlayerbotsPanelTooltips
-local _dbchar = nil
-local _dbaccount = nil
+local _dbchar = {}
+local _dbaccount = {}
 local CALLBACK_TYPE = PlayerbotsBrokerCallbackType
+local QUERY_TYPE = PlayerbotsBrokerQueryType
 
 -- references to tab objects that will be initialized, declared in corresponding files
 PlayerbotsPanel.tabInitList = 
@@ -75,9 +76,21 @@ PlayerbotsPanel.commands = {
                     print("party:" .. tostring(status.party))
                 end
             end
+        },
+        queryWho = {
+            name = "querywho",
+            desc = "who query for all bots",
+            type = 'execute',
+            func = function() 
+                for name, bot in pairs(_dbchar.bots) do
+                    PlayerbotsBroker:StartQuery(QUERY_TYPE.WHO, bot)
+                end
+            end
         }
     }
 }
+
+
 
 PlayerbotsGearView = {}
 -- root frame of the paperdoll view for bots
@@ -94,8 +107,6 @@ function PlayerbotsPanel:OnInitialize()
     if _dbchar.bots == nil then
       _dbchar.bots = {}
     end
-    
-
     _dbaccount = PlayerbotsPanel.db.account
     _updateHandler:Init()
     _broker:Init(_dbchar.bots)
@@ -114,7 +125,6 @@ function PlayerbotsPanel:OnInitialize()
     self:RegisterEvent("CHAT_MSG_SYSTEM")
     self:RegisterEvent("TRADE_CLOSED")
 
-    PlayerbotsPanel:InitializeQueryHandlers()
 end
 
 function PlayerbotsPanel:OnEnable()
@@ -275,9 +285,6 @@ function PlayerbotsPanel:UpdateBot(name, bot)
             ClearInspectPlayer()
         end
     end
-end
-
-function PlayerbotsPanel:InitializeQueryHandlers()
 end
 
 -- Update all bots
@@ -804,6 +811,12 @@ local botSelectorButtons = {}
 -- insecureBtn is like an offline/out of reach, button that selects the CACHED bot data
 -- they swap depending on situation
 function PlayerbotsPanel:CreateBotSelectorButton(name)
+    local bot = PlayerbotsPanel:GetBot(name)
+    if not bot then
+        error("FATAL: PlayerbotsPanel:CreateBotSelectorButton() missing bot!" .. name)
+        return
+    end
+
     local rootFrame = nil
     
     rootFrame = CreateFrame("Frame", nil, PlayerbotsPanel.botSelectorFrame)
@@ -814,7 +827,6 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
     end
     _broker:RegisterCallback(CALLBACK_TYPE.UPDATED_STATUS, name, rootFrame.statusUpdateHandler)
 
-    local bot = PlayerbotsPanel:GetBot(name)
 
     if rootFrame.secureBtn == nil then
         rootFrame.secureBtn = CreateFrame("Button", "ppBotSelector_" .. name, rootFrame, "SecureUnitButtonTemplate")
@@ -895,8 +907,12 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
 end
 
 function PlayerbotsPanel:UpdateBotSelectorButton(name)
-    local rootFrame = botSelectorButtons[name]
     local bot = PlayerbotsPanel:GetBot(name)
+    if not bot then
+        error("FATAL: PlayerbotsPanel:UpdateBotSelectorButton(name) Missing bot! ")
+        return end
+
+    local rootFrame = botSelectorButtons[name]
     local idx = rootFrame.ppidx
     local width = rootFrame.ppwidth
     local height = rootFrame.ppheight
