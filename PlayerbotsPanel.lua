@@ -107,6 +107,9 @@ function PlayerbotsPanel:OnInitialize()
     if _dbchar.bots == nil then
       _dbchar.bots = {}
     end
+    for name, bot in pairs(_dbchar.bots) do
+        PlayerbotsPanel:ValidateBotData(bot)
+    end
     _dbaccount = PlayerbotsPanel.db.account
     _updateHandler:Init()
     _broker:Init(_dbchar.bots)
@@ -252,19 +255,65 @@ function PlayerbotsPanel:CreateBotData(name)
     end
     
     local bot = {}
-    _dbchar.bots[name] = bot
     bot.name = name
-    bot.race = "HUMAN"
-    bot.level = 1
-    bot.currency = {
-        copper = 0,
-        silver = 0,
-        gold = 0,
-        honor = 0
-        }
-    bot.items = {}
-    bot.inventory = {}
+    PlayerbotsPanel:ValidateBotData(bot)
+    _dbchar.bots[name] = bot
     return bot
+end
+
+--- May seem overboard but it allows to adjust the layout of the data after it was already serialized
+function PlayerbotsPanel:ValidateBotData(bot)
+    local function EnsureField(owner, name, value)
+        if not owner[name] then
+            owner[name] = value
+        end
+    end
+
+    EnsureField(bot, "race", "HUMAN")
+    EnsureField(bot, "class", "PALADIN")
+    EnsureField(bot, "level", 1)
+    EnsureField(bot, "expLeft", 0.0)
+    EnsureField(bot, "zone", "Unknown")
+    EnsureField(bot, "talents", {})
+    EnsureField(bot.talents, "dualSpecUnlocked", false)
+    EnsureField(bot.talents, "activeSpec", 1)
+    EnsureField(bot.talents, "specs", {})
+
+    EnsureField(bot.talents.specs,1, {})
+    EnsureField(bot.talents.specs[1],"primary", 1)
+    EnsureField(bot.talents.specs[1],"tabs", {})
+    EnsureField(bot.talents.specs[1].tabs,1, {})
+    EnsureField(bot.talents.specs[1].tabs[1], "points", 0)
+    EnsureField(bot.talents.specs[1].tabs,2, {})
+    EnsureField(bot.talents.specs[1].tabs[2], "points", 0)
+    EnsureField(bot.talents.specs[1].tabs,3, {})
+    EnsureField(bot.talents.specs[1].tabs[3], "points", 0)
+
+    EnsureField(bot.talents.specs,2, {})
+    EnsureField(bot.talents.specs[2],"primary", 1)
+    EnsureField(bot.talents.specs[2],"tabs", {})
+    EnsureField(bot.talents.specs[2].tabs,1, {})
+    EnsureField(bot.talents.specs[2].tabs[1], "points", 0)
+    EnsureField(bot.talents.specs[2].tabs,2, {})
+    EnsureField(bot.talents.specs[2].tabs[2], "points", 0)
+    EnsureField(bot.talents.specs[2].tabs,3, {})
+    EnsureField(bot.talents.specs[2].tabs[3], "points", 0)
+
+    EnsureField(bot, "currency", {})
+    EnsureField(bot.currency, "copper", 0)
+    EnsureField(bot.currency, "silver", 0)
+    EnsureField(bot.currency, "gold", 0)
+    EnsureField(bot.currency, "honor", 0)
+    EnsureField(bot.currency, "other", {})
+
+    EnsureField(bot, "items", {})
+    
+    EnsureField(bot, "bags", {})
+    EnsureField(bot.bags,1, {})
+    EnsureField(bot.bags[1], "link", nil)
+    EnsureField(bot.bags[1], "count", 0)
+    EnsureField(bot.bags[1], "max", 16)
+    EnsureField(bot.bags[1], "contents", {})
 end
 
 -- Update single bot
@@ -434,7 +483,7 @@ function PlayerbotsPanel:UpdateGearView(name)
             PlayerbotsGearView.modelView:Hide()
         end
 
-        statusStr = "Level " .. bot.level 
+        local statusStr = "Level " .. bot.level 
         _util:SetTextColor(PlayerbotsGearView.botDescription, _data.colors.gold)
       
         if not status.online then

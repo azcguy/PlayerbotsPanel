@@ -65,6 +65,8 @@ local _floor = math.floor
 
 local MSG_SEPARATOR = ":"
 local MSG_SEPARATOR_BYTE = _strbyte(":")
+local BYTE_ONE = _strbyte("1")
+local BYTE_ZERO = _strbyte("0")
 local FLOAT_DOT_BYTE = _strbyte(".")
 local MSG_HEADER = {}
 local NULL_LINK = "~"
@@ -135,7 +137,7 @@ _parser.start = function (self, payload)
     self.bufferCount = 0
     self.cursor = 1
 end
-_parser.nextStr = function(self)
+_parser.nextString = function(self)
     if self.broken then
         return "NULL"
     end
@@ -240,6 +242,35 @@ _parser.nextFloat = function(self)
         end
     end
 end
+_parser.nextBool = function (self)
+    if self.broken then
+        return false
+    end
+    local strbyte = _strbyte
+    local strchar = _strchar
+    local buffer = self.buffer
+    local p = self.payload
+    for i = self.cursor, self.len+1 do
+        local c = strbyte(p, i)
+        if c == nil or c == self.separator then
+            if self.bufferCount > 0 then
+                self.cursor = i + 1
+                self.bufferCount = 0
+                if buffer[1] == BYTE_ZERO then
+                    return false
+                else
+                    return true
+                end
+            else
+                return nil
+            end
+        else
+            self.cursor = i
+            self.bufferCount = self.bufferCount + 1
+            buffer[self.bufferCount] = c
+        end
+    end
+end
 
 local function GetCallbackArray(ctype, name)
     local cbs = _callbacks[name]
@@ -329,16 +360,59 @@ end
 -- pay attention not to capture anything in functions
 queryTemplates[QUERY_TYPE.WHO] = 
 {
+
     qtype = QUERY_TYPE.WHO,
     callbackType = CALLBACK_TYPE.WHO,
     bot = nil, -- target bot data
     botStatus = nil,
     id = 0, -- query id
     onStart          = function(query)
-        PlayerbotsBroker:GenerateQueryMsg(query, nil)
     end,
-    onProgress       = function(query, error, payload) 
-        
+    onProgress       = function(query, payload)
+        -- CLASS(token):LEVEL(1-80):SECOND_SPEC_UNLOCKED(0-1):ACTIVE_SPEC(1-2):POINTS1:POINTS2:POINTS3:POINTS4:POINTS5:POINTS6:FLOAT_EXP:LOCATION
+        -- PALADIN:65:1:1:5:10:31:40:5:10:0.89:Blasted Lands 
+        _parser:start(payload)
+        local class = _parser:nextString()
+        local level = _parser:nextInt()
+        local secondSpecUnlocked = _parser:nextBool()
+        local activeSpec = _parser:nextInt()
+        local points1 = _parser:nextInt()
+        local points2 = _parser:nextInt()
+        local points3 = _parser:nextInt()
+        local points4 = _parser:nextInt()
+        local points5 = _parser:nextInt()
+        local points6 = _parser:nextInt()
+        local expPercent = _parser:nextFloat()
+        local zone = _parser:nextString()
+        if not _parser.broken then
+            local bot = query.bot
+            bot.class = class
+            bot.level = level
+            bot.talents.dualSpecUnlocked = secondSpecUnlocked
+            bot.talents.activeSpec = activeSpec
+            local spec1 = bot.talents.specs[1]
+            local p1 = 1
+            if points2 > points1 then
+                p1 = 2 end
+            if points3 > points2 then
+                p1 = 3 end
+            spec1.primary = p1
+            spec1.tabs[1].points = points1
+            spec1.tabs[2].points = points2
+            spec1.tabs[3].points = points3
+            local spec2 = bot.talents.specs[2]
+            local p2 = 1
+            if points5 > points4 then
+                p2 = 2 end
+            if points6 > points5 then
+                p2 = 3 end
+            spec2.primary = p2
+            spec2.tabs[1].points = points4
+            spec2.tabs[2].points = points5
+            spec2.tabs[3].points = points6
+            bot.expLeft = expPercent
+            bot.zone = zone
+        end
     end,
     onFinalize       = function(query) end,
 }
@@ -436,6 +510,7 @@ function PlayerbotsBroker:StartQuery(qtype, bot)
         array[qtype] = query
         _activeQueriesById[query.id] = query
         query:onStart(query)
+        PlayerbotsBroker:GenerateQueryMsg(query, nil)
     end
 end
 
@@ -574,9 +649,10 @@ function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
                         query.opcode = subtype -- grab the opcode, it can be (p), (f), (1-9), more later possible
                         if subtype == QUERY_OPCODE.PROGRESS then
                             local payload = _strsub(message, 9)
-                            query.onProgress(query, query.errorCode, payload)
+                            query.onProgress(query, payload)
                         elseif subtype == QUERY_OPCODE.FINAL then
                             local payload = _strsub(message, 9)
+                            query.onProgress(query, payload)
                             PlayerbotsBroker:FinalizeQuery(query)
                         elseif subtype >= UTF8_NUM_FIRST and subtype <= UTF8_NUM_LAST then
                             query.hasError = true
