@@ -1,5 +1,14 @@
 PlayerbotsPanelUtil = {}
 local _data = PlayerbotsPanelData
+local _eval = PlayerbotsPanelUtil.CompareAndReturn
+
+function  PlayerbotsPanelUtil.CompareAndReturn(eval, ifTrue, ifFalse)
+    if eval then
+        return ifTrue
+    else
+        return ifFalse
+    end
+end
 
 function PlayerbotsPanelUtil:SetTextColor(text, c)
     text:SetTextColor(c.fr, c.fg, c.fb, c.fa)
@@ -10,7 +19,7 @@ function PlayerbotsPanelUtil:SetVertexColor(tex, c)
 end
 
 function PlayerbotsPanelUtil:SetTextColorToClass(text, class)
-    local c = class == nil and _data.colors.white or _data.colors.classes[strupper(class)]
+    local c = PlayerbotsPanelUtil.CompareAndReturn(class == nil, _data.colors.white, _data.colors.classes[strupper(class)])
     text:SetTextColor(c.fr, c.fg, c.fb, c.fa)
 end
 

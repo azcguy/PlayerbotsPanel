@@ -14,6 +14,8 @@ local _dbchar = {}
 local _dbaccount = {}
 local CALLBACK_TYPE = PlayerbotsBrokerCallbackType
 local QUERY_TYPE = PlayerbotsBrokerQueryType
+local _selectedBot = nil
+local _eval = _util.CompareAndReturn
 
 -- references to tab objects that will be initialized, declared in corresponding files
 PlayerbotsPanel.tabInitList = 
@@ -363,52 +365,24 @@ end
 
 function PlayerbotsPanel:RefreshSelection()
     _updateHandler:DelayCall(0.25, function()
-        local selected = PlayerbotsPanel:GetSelectedBot()
-        if selected ~= nil then
-            PlayerbotsPanel:UpdateBots()
-            PlayerbotsPanel:SetSelectedBot(selected.name)
+        if _selectedBot ~= nil then
+            PlayerbotsPanel:SetSelectedBot(_selectedBot.name)
         end
     end)
 end
 
 function PlayerbotsPanel:ClearSelection()
     PlayerbotsPanel:UpdateBots()
-    for name, bot in pairs(_dbchar.bots) do
-        if bot.selected then
-            bot.selected = false
-            PlayerbotsPanel:UpdateBotSelectorButton(name)
-        end
-    end
+    PlayerbotsPanel:UpdateBotSelector()
     PlayerbotsPanel:UpdateGearView(nil)
-end
-
-function PlayerbotsPanel:GetSelectedBot()
-    for name, bot in pairs(_dbchar.bots) do
-        if bot.selected then
-            return bot
-        end
-    end
-    return nil
 end
 
 function PlayerbotsPanel:SetSelectedBot(botname)
     local bot = PlayerbotsPanel:GetBot(botname)
     if bot == nil then return end
+    _selectedBot = bot
     PlayerbotsPanel:UpdateBots()
-    for name, bot in pairs(_dbchar.bots) do
-        if name == botname then
-            if not bot.selected then
-                bot.selected = true
-                PlayerbotsPanel:UpdateBotSelectorButton(botname)
-            end
-        else
-            if bot.selected then
-                bot.selected = false
-                PlayerbotsPanel:UpdateBotSelectorButton(bot.name)
-            end
-        end
-    end
-
+    PlayerbotsPanel:UpdateBotSelector()
     PlayerbotsPanel:UpdateGearView(botname)
     PlaySound(_data.sounds.onBotSelect)
 end
@@ -504,7 +478,7 @@ function PlayerbotsPanel:UpdateGearView(name)
             PlayerbotsGearView.txtSilver:SetText("?")
             PlayerbotsGearView.txtCopper:SetText("?")
         end
-      
+        
         for i=1, 19 do 
             UpdateGearSlot(bot, i)
         end
@@ -589,10 +563,12 @@ function PlayerbotsPanel:SetupGearSlot(id, x, y)
 end
 
 function PlayerbotsPanel:DropItemSelected()
-    DropItemOnUnit(PlayerbotsPanel:GetSelectedBot().name)
-    _updateHandler:DelayCall(0.25, function()
-        AcceptTrade()
-    end)
+    if _selectedBot then
+        DropItemOnUnit(_selectedBot.name)
+        _updateHandler:DelayCall(0.25, function()
+            AcceptTrade()
+        end)
+    end
 end
 
 function PlayerbotsPanel:SetupGearFrame()
@@ -799,12 +775,12 @@ function PlayerbotsPanel:SetupGearFrame()
     slotPosY = slotPosY - slotOffsetY
 
     PlayerbotsGearView.onUpdatedEquipSlot = function(bot, slotNum, itemLink)
-        if bot.selected then 
+        if bot == _selectedBot then 
             UpdateGearSlot(bot, slotNum)
         end
     end
 
-    _broker:RegisterGlobalCallback(CALLBACK_TYPE.UPDATED_EQUIP_SLOT, PlayerbotsGearView.onUpdatedEquipSlot)
+    _broker:RegisterGlobalCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, PlayerbotsGearView.onUpdatedEquipSlot)
 
 end
 
@@ -873,8 +849,11 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
 
     rootFrame.statusUpdateHandler = function(bot, status)
         PlayerbotsPanel:UpdateBotSelectorButton(bot.name)
+        if bot == _selectedBot then
+            PlayerbotsPanel:UpdateGearView(bot.name)
+        end
     end
-    _broker:RegisterCallback(CALLBACK_TYPE.UPDATED_STATUS, name, rootFrame.statusUpdateHandler)
+    _broker:RegisterCallback(CALLBACK_TYPE.STATUS_CHANGED, name, rootFrame.statusUpdateHandler)
 
 
     if rootFrame.secureBtn == nil then
@@ -966,7 +945,7 @@ function PlayerbotsPanel:UpdateBotSelectorButton(name)
     local width = rootFrame.ppwidth
     local height = rootFrame.ppheight
     local isTarget = UnitName("target") == bot.name
-    local selected = bot.selected
+    local selected = _selectedBot == bot
 
     local status = _broker:GetBotStatus(bot.name)
     local online = status.online

@@ -32,13 +32,17 @@ local _callbacks = {} -- callbacks PER bot
 local _globalCallbacks = {} -- callbacks called for ANY bot
 
 -- UPDATED_STATUS (bot, status)                 // Online/offline/party
-CALLBACK_TYPE.UPDATED_STATUS = {}
+CALLBACK_TYPE.STATUS_CHANGED = {}
 -- UPDATED_STATUS (bot, status)                 // Class, Spec, Level, Experience, Location, 
-CALLBACK_TYPE.WHO = {}
+CALLBACK_TYPE.LEVEL_CHANGED = {}
+CALLBACK_TYPE.EXPERIENCE_CHANGED = {}
+CALLBACK_TYPE.SPEC_DATA_CHANGED = {}
+CALLBACK_TYPE.ZONE_CHANGED = {}
 -- UPDATED_EQUIP_SLOT (bot, slotNum)            // bot equips a single item
-CALLBACK_TYPE.UPDATED_EQUIP_SLOT = {}
+CALLBACK_TYPE.EQUIP_SLOT_CHANGED = {}
 -- UPDATED_EQUIPMENT (bot)                      // full equipment update completed
-CALLBACK_TYPE.UPDATED_EQUIPMENT = {}
+CALLBACK_TYPE.EQUIPMENT_CHANGED = {}
+
 
 -- ============================================================================================
 -- ============== Locals optimization, use in hotpaths
@@ -59,6 +63,7 @@ local _getn = getn
 local _sendAddonMsg = SendAddonMessage
 local _pow = math.pow
 local _floor = math.floor
+local _eval = _util.CompareAndReturn
 
 -- ============================================================================================
 -- SHARED BETWEEN EMU/BROKER
@@ -167,6 +172,14 @@ _parser.nextString = function(self)
         end
     end
 end
+_parser.stringToEnd = function(self)
+    if self.broken then
+        return "NULL"
+    end
+    self.bufferCount = 0
+    return _strsub(self.payload, self.cursor)
+end
+
 _parser.nextInt = function(self)
     if self.broken then
         return 0
@@ -382,36 +395,101 @@ queryTemplates[QUERY_TYPE.WHO] =
         local points4 = _parser:nextInt()
         local points5 = _parser:nextInt()
         local points6 = _parser:nextInt()
-        local expPercent = _parser:nextFloat()
+        local expLeft = _parser:nextFloat()
         local zone = _parser:nextString()
-        if not _parser.broken then
+        if not _parser.broken then 
+            -- this code is very verbose, but it is the most optimized way, think of it as inlining
             local bot = query.bot
+            local botname = bot.name
+
             bot.class = class
-            bot.level = level
-            bot.talents.dualSpecUnlocked = secondSpecUnlocked
-            bot.talents.activeSpec = activeSpec
+
+            local changed_level = false
+            local changed_spec_data = false
+            local changed_exp = false
+            local changed_zone = false
+
+            if bot.level ~= level then
+                bot.level = level
+                changed_level = true
+            end
+
+            if bot.talents.dualSpecUnlocked ~= secondSpecUnlocked then
+                bot.talents.dualSpecUnlocked = secondSpecUnlocked
+                changed_spec_data = true
+            end
+
+            if bot.talents.activeSpec ~= activeSpec then
+                bot.talents.activeSpec = activeSpec
+                changed_spec_data = true
+            end
+
             local spec1 = bot.talents.specs[1]
+            local spec1tabs = spec1.tabs
             local p1 = 1
-            if points2 > points1 then
-                p1 = 2 end
-            if points3 > points2 then
-                p1 = 3 end
-            spec1.primary = p1
-            spec1.tabs[1].points = points1
-            spec1.tabs[2].points = points2
-            spec1.tabs[3].points = points3
+            if points2 > points1 then p1 = 2 end
+            if points3 > points2 then p1 = 3 end
+            
+            if spec1.primary ~= p1 then
+                spec1.primary = p1
+                changed_spec_data = true
+            end
+
+            if spec1tabs[1].points ~= points1 then
+                spec1tabs[1].points = points1
+                changed_spec_data = true
+            end
+
+            if spec1tabs[2].points ~= points2 then
+                spec1tabs[2].points = points2
+                changed_spec_data = true
+            end
+
+            if spec1tabs[3].points ~= points3 then
+                spec1tabs[3].points = points3
+                changed_spec_data = true
+            end
+
             local spec2 = bot.talents.specs[2]
+            local spec2tabs = spec2.tabs
             local p2 = 1
-            if points5 > points4 then
-                p2 = 2 end
-            if points6 > points5 then
-                p2 = 3 end
-            spec2.primary = p2
-            spec2.tabs[1].points = points4
-            spec2.tabs[2].points = points5
-            spec2.tabs[3].points = points6
-            bot.expLeft = expPercent
-            bot.zone = zone
+            if points5 > points4 then p2 = 2 end
+            if points6 > points5 then p2 = 3 end
+
+            if spec2.primary ~= p2 then
+                spec2.primary = p2
+                changed_spec_data = true
+            end
+
+            if spec2tabs[1].points ~= points4 then
+                spec2tabs[1].points = points4
+                changed_spec_data = true
+            end
+
+            if spec2tabs[2].points ~= points5 then
+                spec2tabs[2].points = points5
+                changed_spec_data = true
+            end
+
+            if spec2tabs[3].points ~= points6 then
+                spec2tabs[3].points = points6
+                changed_spec_data = true
+            end
+
+            if bot.expLeft ~= expLeft then
+                bot.expLeft = expLeft
+                changed_exp = true
+            end
+
+            if bot.zone ~= zone then
+                bot.zone = zone
+                changed_zone = true
+            end
+
+            if changed_level then InvokeCallback(CALLBACK_TYPE.LEVEL_CHANGED, botname) end
+            if changed_exp then InvokeCallback(CALLBACK_TYPE.EXPERIENCE_CHANGED, botname) end
+            if changed_zone then InvokeCallback(CALLBACK_TYPE.ZONE_CHANGED, botname) end
+            if changed_spec_data then InvokeCallback(CALLBACK_TYPE.SPEC_DATA_CHANGED, botname) end
         end
     end,
     onFinalize       = function(query) end,
@@ -456,7 +534,7 @@ function PlayerbotsBroker:Init(bots)
 
     for name, bot in _pairs(_bots) do
         local status = PlayerbotsBroker:GetBotStatus(bot.name)
-        status.party = UnitInParty(bot.name) ~= nil and true or false
+        status.party = UnitInParty(bot.name) ~= nil
         PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.PING)
     end
 end
@@ -576,8 +654,8 @@ local SYS_MSG_HANDLERS = {}
 SYS_MSG_HANDLERS[SYS_MSG_TYPE.HANDSHAKE] = function(id,payload, bot, status)
     if not status.online then
         status.online = true
-        status.party = UnitInParty(bot.name) ~= nil and true or false
-        InvokeCallback(CALLBACK_TYPE.UPDATED_STATUS, bot.name, bot, status)
+        status.party = UnitInParty(bot.name) ~= nil
+        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot.name, bot, status)
     end
     PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.HANDSHAKE)
     PlayerbotsBroker:StartQuery(QUERY_TYPE.WHO, bot)
@@ -586,30 +664,54 @@ end
 SYS_MSG_HANDLERS[SYS_MSG_TYPE.PING] = function(id,payload, bot, status)
     if not status.online then
         status.online = true
-        status.party = UnitInParty(bot.name) ~= nil and true or false
-        InvokeCallback(CALLBACK_TYPE.UPDATED_STATUS, bot.name , bot, status)
+        status.party = UnitInParty(bot.name) ~= nil
+        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot.name , bot, status)
     end
 end
 
 SYS_MSG_HANDLERS[SYS_MSG_TYPE.LOGOUT] = function(id,payload, bot, status)
     if status.online then
         status.online = false
-        InvokeCallback(CALLBACK_TYPE.UPDATED_STATUS, bot.name , bot, status)
+        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot.name , bot, status)
+    end
+end
+
+local function CompareAndReturn(eval, ifTrue, ifFalse)
+    if eval then
+        return ifTrue
+    else
+        return ifFalse
     end
 end
 
 local REP_MSG_HANDLERS = {}
 REP_MSG_HANDLERS[REPORT_TYPE.ITEM_EQUIPPED] = function(id,payload,bot,status)
-    local slotNum, countNum, link = _strsplit(MSG_SEPARATOR, payload, 3)
-    slotNum = _tonumber(slotNum)
-    countNum = _tonumber(countNum)
+    _parser:start(payload)
+    local slotNum = _parser:nextInt()
+    local countNum = _parser:nextInt()
+    local link = _parser:stringToEnd()
     local item = bot.items[slotNum]
-    item.link = link 
-    if link == NULL_LINK then
-        item.link = nil
+    local changed = false;
+
+    if not item then
+        _debug:LevelDebug(1, "Tried to update non existing slot number?")
+        return
     end
-    item.count = countNum
-    InvokeCallback(CALLBACK_TYPE.UPDATED_EQUIP_SLOT, bot.name, bot, slotNum)
+
+    local resultLink = _eval(link == NULL_LINK, nil, link)
+    if resultLink ~= item.link then
+        item.link = resultLink
+        changed = true
+    end
+
+    if countNum ~= item.count then
+        item.count = countNum
+        changed = true
+    end
+
+    if changed then
+        InvokeCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, bot.name, bot, slotNum)
+    end
 end
 REP_MSG_HANDLERS[REPORT_TYPE.CURRENCY] = function(id,payload,bot,status) end
 REP_MSG_HANDLERS[REPORT_TYPE.INVENTORY] = function(id,payload,bot,status) end
@@ -700,10 +802,10 @@ end
 function PlayerbotsBroker:PARTY_MEMBERS_CHANGED()
     for name, bot in pairs(_bots) do
         local status = PlayerbotsBroker:GetBotStatus(name)
-        local inparty =  UnitInParty(name) ~= nil and true or false
+        local inparty =  UnitInParty(name) ~= nil
         if inparty ~= status.party then
             status.party = inparty
-            InvokeCallback(CALLBACK_TYPE.UPDATED_STATUS, bot.name , bot, status)
+            InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot.name , bot, status)
         end
     end
 end
