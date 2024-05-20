@@ -90,6 +90,8 @@ REPORT_TYPE.INVENTORY = _strbyte("i") -- inventory changed (bag changed, item ad
 REPORT_TYPE.TALENTS = _strbyte("t") -- talent learned / spec changed / talents reset
 REPORT_TYPE.SPELLS = _strbyte("s") -- spell learned
 REPORT_TYPE.QUEST = _strbyte("q") -- single quest accepted, abandoned, changed, completed
+REPORT_TYPE.EXPERIENCE = _strbyte("e") -- level, experience
+REPORT_TYPE.STATS = _strbyte("S") -- all stats and combat ratings
 
 local SYS_MSG_TYPE = {}
 SYS_MSG_TYPE.HANDSHAKE = _strbyte("h")
@@ -285,6 +287,10 @@ _parser.nextBool = function (self)
     end
 end
 
+-----------------------------------------------------------------------------
+----- PARSER END
+-----------------------------------------------------------------------------
+
 local function GetCallbackArray(ctype, name)
     local cbs = _callbacks[name]
     if not cbs then
@@ -320,7 +326,7 @@ function PlayerbotsBroker:UnregisterGlobalCallback(ctype, callback)
     if not ctype then return end
     if not callback then return end
     local array = GetGlobalCallbackArray(ctype)
-    local idx = _util:FindIndex(array, callback)
+    local idx = _util.FindIndex(array, callback)
     if idx > 0 then
         _tremove(array, idx)
     end
@@ -340,7 +346,7 @@ function PlayerbotsBroker:UnegisterCallback(ctype, botName, callback)
     if not botName then return end
     if not callback then return end
     local array = GetCallbackArray(ctype, botName)
-    local idx = _util:FindIndex(array, callback)
+    local idx = _util.FindIndex(array, callback)
     if idx > 0 then
         _tremove(array, idx)
     end
@@ -370,15 +376,19 @@ local function InvokeCallback(ctype, name, arg1, arg2, arg3, arg4)
 
 end
 
+-----------------------------------------------------------------------------
+----- QUERIES START
+----- QUERIES START
+----- QUERIES START
+----- QUERIES START
+----- QUERIES START
+-----------------------------------------------------------------------------
+
 -- pay attention not to capture anything in functions
 queryTemplates[QUERY_TYPE.WHO] = 
 {
-
     qtype = QUERY_TYPE.WHO,
     callbackType = CALLBACK_TYPE.WHO,
-    bot = nil, -- target bot data
-    botStatus = nil,
-    id = 0, -- query id
     onStart          = function(query)
     end,
     onProgress       = function(query, payload)
@@ -495,8 +505,49 @@ queryTemplates[QUERY_TYPE.WHO] =
     onFinalize       = function(query) end,
 }
 
+queryTemplates[QUERY_TYPE.GEAR] = 
+{
+    qtype = QUERY_TYPE.GEAR,
+    callbackType = CALLBACK_TYPE.EQUIPMENT_CHANGED,
+    onStart          = function(query)
+
+    end,
+    onProgress       = function(query, payload)
+        _parser:start(payload)
+        local slot = _parser:nextInt()
+        local count = _parser:nextInt()
+        local link = _parser:stringToEnd()
+        query.ctx1[slot] = link
+        query.ctx2[slot] = count
+        query.ctx1.changed = true
+    end,
+    onFinalize       = function(query)
+        if query.ctx1.changed then
+            local items = query.bot.items
+            for i=1, 19 do
+                local link = query.ctx1[i]
+                local item = items[i]
+                if link then
+                    item.link = link
+                    item.count = query.ctx2[i]
+                else
+                    item.link = nil
+                    item.count = 0
+                end
+            end
+        else
+            query.callbackType = nil -- if nothing changed, no data received, dont callback 
+        end
+    end,
+}
+
+
 -----------------------------------------------------------------------------
------ NEW API START
+----- QUERIES END
+----- QUERIES END
+----- QUERIES END
+----- QUERIES END
+----- QUERIES END
 -----------------------------------------------------------------------------
 
 function PlayerbotsBroker:GetBotStatus(name)
@@ -565,18 +616,11 @@ function PlayerbotsBroker:OnUpdate(elapsed)
 end
 
 function PlayerbotsBroker:StartQuery(qtype, bot)
+    if not bot then return end
     local status = PlayerbotsBroker:GetBotStatus(bot.name)
-    if not bot or not status.online then
-        -- abort query because the bot is either not available or offline
-        return
-    end
-    --_debug:LevelDebug(3, "PlayerbotsBroker:StartQuery", "QUERY_TYPE", QUERY_TYPE, "name", bot.name)
-    local bot = PlayerbotsPanel:GetBot(bot.name)
-    if bot == nil then
-        --_debug:LevelDebug(2, "PlayerbotsBroker:StartQuery - Queried bot was not found!", bot.name)
-        return
-    end
+    if not status.online then return end -- abort query because the bot is either not available or offline
 
+    --_debug:LevelDebug(3, "PlayerbotsBroker:StartQuery", "QUERY_TYPE", QUERY_TYPE, "name", bot.name)
     local array = PlayerbotsBroker:GetQueriesArray(bot.name)
     local query = array[qtype]
     if query then
@@ -610,23 +654,44 @@ local function ReleaseQueryID(id)
     _activeIdsCount = _activeIdsCount - 1
 end
 
+local _queryPool = {}
+local _queryPoolCount = 0
 function PlayerbotsBroker:ConstructQuery(qtype, name)
-    local bot = PlayerbotsPanel:GetBot(name)
-    if not bot then return end
-    if queryTemplates[qtype] then
-        local template = queryTemplates[qtype]
-        local query = {
-            qtype = template.qtype,
-            hasError = false,
-            opcode = QUERY_OPCODE.PROGRESS,
-            bot = bot,
-            botStatus = PlayerbotsBroker:GetBotStatus(name),
-            id = RentQueryID(),
-            lastMessageTime = _updateHandler.totalTime,
-            onStart = template.onStart,
-            onProgress = template.onProgress,
-            onFinalize = template.onFinalize
-        }
+    local template = queryTemplates[qtype]
+    if template then
+        local bot = PlayerbotsPanel:GetBot(name)
+        if not bot then return end
+        local query = nil
+        if _queryPoolCount > 0 then
+            query = _queryPool[_queryPoolCount]
+            _queryPool[_queryPoolCount] = nil
+            _queryPoolCount = _queryPoolCount - 1
+        else
+            query = {}
+        end
+
+        query.qtype = template.qtype
+        query.hasError = false
+        query.opcode = QUERY_OPCODE.PROGRESS
+        query.bot = bot
+        query.botStatus = PlayerbotsBroker:GetBotStatus(name)
+        query.id = RentQueryID()
+        query.lastMessageTime = _updateHandler.totalTime
+        query.onStart = template.onStart
+        query.onProgress = template.onProgress
+        query.onFinalize = template.onFinalize
+        
+        if query.ctx1 == nil then
+            query.ctx1 = {} -- context is a table any code can use for any reason that gets wiped when the query returns to the pool
+        end
+
+        if query.ctx2 == nil then
+            query.ctx2 = {} -- context is a table any code can use for any reason that gets wiped when the query returns to the pool
+        end
+
+        if query.ctx3 == nil then
+            query.ctx3 = {} -- context is a table any code can use for any reason that gets wiped when the query returns to the pool
+        end
         return query
     end
     return nil
@@ -636,10 +701,18 @@ function PlayerbotsBroker:FinalizeQuery(query)
     if not query.hasError then
         query:onFinalize(query)
     end
+
     local queries = PlayerbotsBroker:GetQueriesArray(query.bot.name)
     queries[query.qtype] = nil
     _activeQueriesById[query.id] = nil
     ReleaseQueryID(query.id)
+
+    wipe(query.ctx1)
+    wipe(query.ctx2)
+    wipe(query.ctx3)
+    _queryPoolCount = _queryPoolCount + 1
+    _queryPool[_queryPoolCount] = query
+
     --_debug:LevelDebug(3, "PlayerbotsBroker:FinalizeQuery", query.bot.name , queries[query.qtype],  _activeQueriesById[query.id])
     if not query.hasError and query.callbackType then
         InvokeCallback(query.callbackType, query.bot.name, query.bot, query.botStatus)

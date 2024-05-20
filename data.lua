@@ -10,8 +10,9 @@ _data.ROOT_PATH = "Interface\\AddOns\\PlayerbotsPanel\\"
 ----- Colors 
 -----------------------------------------------------------------------------
 
-function PlayerbotsPanelData:CreateColor(r,g,b,a, hex)
-    color = {}
+function PlayerbotsPanelData.CreateColor(r,g,b,a, hex)
+    local color = {}
+    if a == nil then a = 255 end
     color.fr = r / 255
     color.fg = g / 255
     color.fb = b / 255
@@ -22,6 +23,20 @@ function PlayerbotsPanelData:CreateColor(r,g,b,a, hex)
     color.a = a
     color.hex = hex
     return color
+end
+function PlayerbotsPanelData.CreateColorF(r,g,b,a, hex)
+    local color = {}
+    if a == nil then a = 1 end
+    color.fr = r 
+    color.fg = g
+    color.fb = b 
+    color.fa = a 
+    color.r = r * 255
+    color.g = g * 255
+    color.b = b * 255
+    color.a = a * 255
+    color.hex = hex
+    return color
 end 
 
 _data.colors.defaultSlotHighlight = {
@@ -30,27 +45,35 @@ _data.colors.defaultSlotHighlight = {
   b = 243/255
 }
 
-_data.colors.white = _data:CreateColor(255,255,255,255,"#FFFFFF")
-_data.colors.gold = _data:CreateColor(255,215,0,255,"#FFD700")
-_data.colors.red = _data:CreateColor(255,0,0,255,"#FF0000")
-_data.colors.gray = _data:CreateColor(132,132,132,255,"#848484")
+_data.colors.quality = {}
+for i=0, 7 do
+    local r,g,b = GetItemQualityColor(i)
+    _data.colors.quality[i] = _data.CreateColorF(r,g,b)
+end
+
+_data.colors.white = _data.CreateColor(255,255,255,255,"#FFFFFF")
+_data.colors.gold = _data.CreateColor(255,215,0,255,"#FFD700")
+_data.colors.red = _data.CreateColor(255,0,0,255,"#FF0000")
+_data.colors.gray = _data.CreateColor(55,55,55,255,"#848484")
 _data.colors.classes = {
-    DEATHKNIGHT = _data:CreateColor(196, 30, 58, 255, "#C41E3A"),
-    DRUID = _data:CreateColor(255, 124, 10, 255, "#FF7C0A"),
-    HUNTER = _data:CreateColor(170, 211, 114, 255, "#AAD372"),
-    MAGE = _data:CreateColor(63, 199, 235, 255, "#3FC7EB"),
-    PALADIN = _data:CreateColor(244, 140, 186, 255, "#F48CBA"),
-    PRIEST = _data:CreateColor(255, 255, 255, 255, "#FFFFFF"),
-    ROGUE = _data:CreateColor(255, 244, 104, 255, "#FFF468"),
-    SHAMAN = _data:CreateColor(0, 112, 221, 255, "#0070DD"),
-    WARLOCK = _data:CreateColor(135, 136, 238, 255, "#8788EE"),
-    WARRIOR = _data:CreateColor(198, 155, 109, 255, "#C69B6D"),
+    DEATHKNIGHT = _data.CreateColor(196, 30, 58, 255, "#C41E3A"),
+    DRUID = _data.CreateColor(255, 124, 10, 255, "#FF7C0A"),
+    HUNTER = _data.CreateColor(170, 211, 114, 255, "#AAD372"),
+    MAGE = _data.CreateColor(63, 199, 235, 255, "#3FC7EB"),
+    PALADIN = _data.CreateColor(244, 140, 186, 255, "#F48CBA"),
+    PRIEST = _data.CreateColor(255, 255, 255, 255, "#FFFFFF"),
+    ROGUE = _data.CreateColor(255, 244, 104, 255, "#FFF468"),
+    SHAMAN = _data.CreateColor(0, 112, 221, 255, "#0070DD"),
+    WARLOCK = _data.CreateColor(135, 136, 238, 255, "#8788EE"),
+    WARRIOR = _data.CreateColor(198, 155, 109, 255, "#C69B6D"),
 }
 
 -----------------------------------------------------------------------------
 ----- Textures 
 -----------------------------------------------------------------------------
 
+-- placeholder and debug texture
+_data.textures.white = "Interface\\BUTTONS\\WHITE8X8.BLP" 
 -- highlight tex for gear slot
 _data.textures.slotHi = "Interface\\Buttons\\UI-ActionButton-Border"
 _data.textures.emptySlot = "Interface\\PaperDoll\\UI-Backpack-EmptySlot.blp"
@@ -81,6 +104,9 @@ _data.textures.slotIDbg = {
 
 _data.textures.updateBotsUp = "Interface\\GLUES\\CHARACTERCREATE\\UI-RotationRight-Big-Up.blp"
 _data.textures.updateBotsDown = "Interface\\GLUES\\CHARACTERCREATE\\UI-RotationRight-Big-Down.blp"
+
+_data.textures.inventoryTopbar = _data.ROOT_PATH .. "textures\\inventory_topbar.tga"
+
 
 _data.raceData =
 {
@@ -139,3 +165,4 @@ _data.strings.tooltips.inviteBot = "Invite bot to party / raid"
 _data.strings.tooltips.uninviteBot = "Uninvite from party / raid"
 -- gear view
 _data.strings.tooltips.gearViewHelp = "Left click to unequip item \nRight click to put item in trade\nDrag items on the portrait to trade them"
+_data.strings.tooltips.gearViewUpdateGear = "Update all selected bot gear\nUse if you notice desync due to bugs or network"

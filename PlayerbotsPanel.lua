@@ -1,8 +1,9 @@
-ROOT_PATH     = "Interface\\AddOns\\PlayerbotsPanel\\"
-PlayerbotsPanel    = AceLibrary("AceAddon-2.0"):new("AceConsole-2.0", "AceDB-2.0", "AceHook-2.1", "AceDebug-2.0", "AceEvent-2.0")
-PlayerbotsFrame    = CreateFrame("Frame", "PlayerbotsPanelFrame", UIParent)
+PlayerbotsPanel = AceLibrary("AceAddon-2.0"):new("AceConsole-2.0", "AceDB-2.0", "AceHook-2.1", "AceDebug-2.0", "AceEvent-2.0")
+PlayerbotsPanel.rootPath = "Interface\\AddOns\\PlayerbotsPanel\\"
+PlayerbotsFrame = CreateFrame("Frame", "PlayerbotsPanelFrame", UIParent)
 PlayerbotsPanel:RegisterDB("PlayerbotsPanelDb", "PlayerbotsPanelDbPerChar")
 
+local ROOT_PATH  = PlayerbotsPanel.rootPath
 local _cfg = PlayerbotsPanelConfig
 local _data = PlayerbotsPanelData
 local _util = PlayerbotsPanelUtil
@@ -149,7 +150,6 @@ end
 
 function PlayerbotsPanel:OnShow()
     PlaySound(_data.sounds.onAddonShow)
-    PlayerbotsPanel:UpdateBots()
 end
 
 function PlayerbotsPanel:OnHide()
@@ -177,12 +177,10 @@ end
 
 function PlayerbotsPanel:PARTY_MEMBERS_CHANGED()
     _broker:PARTY_MEMBERS_CHANGED()
-    PlayerbotsPanel:UpdateBots()
 end
 
 function PlayerbotsPanel:PARTY_MEMBER_ENABLE()
     _broker:PARTY_MEMBER_ENABLE()
-    PlayerbotsPanel:UpdateBots()
 end
 
 function PlayerbotsPanel:PARTY_MEMBER_DISABLE()
@@ -190,10 +188,6 @@ function PlayerbotsPanel:PARTY_MEMBER_DISABLE()
 end
 
 function PlayerbotsPanel:TRADE_CLOSED()
-    --_updateHandler:DelayCall(0.25, function()
-    --    PlayerbotsPanel:UpdateBots()
-    --    PlayerbotsPanel:RefreshSelection()
-    --end)
 end
 
 function PlayerbotsPanel:UNIT_MODEL_CHANGED()
@@ -232,7 +226,7 @@ function PlayerbotsPanel:ExtractTargetData()
     PlayerbotsPanel.targetData = {
         isPlayer = UnitIsPlayer("target"),
         guid = UnitGUID("target"),
-        isRegistered = _util:Where(_dbchar.bots, function(k,v)
+        isRegistered = _util.Where(_dbchar.bots, function(k,v)
             if k == _name then return true end
         end),
         isOnline = UnitIsConnected("target"),
@@ -318,46 +312,17 @@ function PlayerbotsPanel:ValidateBotData(bot)
     EnsureField(bot.bags[1], "contents", {})
 end
 
--- Update single bot
-function PlayerbotsPanel:UpdateBot(name, bot)
-    local status = _broker:GetBotStatus(name)
-
-    if status.party and status.online then
-        if CanInspect(name, true) and CheckInteractDistance(name, 1) then
-            NotifyInspect(name)
-            for slot=1, 19 do
-                bot.items[slot] = {}
-                local item = bot.items[slot]
-                item.link = GetInventoryItemLink(name, slot)
-                if item.link ~= nil then
-                    item.count = GetInventoryItemCount(name, slot)
-                end
-            end
-            ClearInspectPlayer()
-        end
-    end
-end
-
--- Update all bots
--- BOT DATA IS ONLY UPDATED IF THE BOT IS IN PARTY
-function PlayerbotsPanel:UpdateBots()
-    for k, bot in pairs(_dbchar.bots) do
-        PlayerbotsPanel:UpdateBot(k, bot)
-    end
-end
-
 function PlayerbotsPanel:RegisterByName(name)
     if _dbchar.bots[name] == nil then
         _dbchar.bots[name] = PlayerbotsPanel:CreateBotData(name)
     end
-    PlayerbotsPanel:UpdateBots()
     PlayerbotsPanel:UpdateBotSelector()
     PlayerbotsPanel:SetSelectedBot(name)
 end
 
 function PlayerbotsPanel:UnregisterByName(name)
     if _dbchar.bots[name] ~= nil then
-        _dbchar.bots = _util:RemoveByKey(_dbchar.bots, name)
+        _dbchar.bots = _util.RemoveByKey(_dbchar.bots, name)
     end
     PlayerbotsPanel:ClearSelection()
     PlayerbotsPanel:UpdateBotSelector()
@@ -372,7 +337,6 @@ function PlayerbotsPanel:RefreshSelection()
 end
 
 function PlayerbotsPanel:ClearSelection()
-    PlayerbotsPanel:UpdateBots()
     PlayerbotsPanel:UpdateBotSelector()
     PlayerbotsPanel:UpdateGearView(nil)
 end
@@ -381,7 +345,6 @@ function PlayerbotsPanel:SetSelectedBot(botname)
     local bot = PlayerbotsPanel:GetBot(botname)
     if bot == nil then return end
     _selectedBot = bot
-    PlayerbotsPanel:UpdateBots()
     PlayerbotsPanel:UpdateBotSelector()
     PlayerbotsPanel:UpdateGearView(botname)
     PlaySound(_data.sounds.onBotSelect)
@@ -397,13 +360,13 @@ end
 
 local function UpdateGearSlot(bot, slotNum)
     local slot = PlayerbotsGearView.slots[slotNum + 1]
-    local botItem = nil
+    local item = nil
 
     if bot then
-        botItem = bot.items[slotNum]
+        item = bot.items[slotNum]
     end
 
-    if bot == nil or botItem == nil or botItem.link == nil then -- if empty
+    if bot == nil or item == nil or item.link == nil then -- if empty
         slot.item = nil
         slot.itemTex:Hide()
         slot.qTex:Hide()
@@ -414,7 +377,7 @@ local function UpdateGearSlot(bot, slotNum)
         end
 
         local sitem = slot.item
-        sitem.name, sitem.link, sitem.quality, sitem.iLevel, sitem.reqLevel, sitem.class, sitem.subclass, sitem.maxStack, sitem.equipSlot, sitem.texture, sitem.vendorPrice = GetItemInfo(botItem.link)
+        sitem.name, sitem.link, sitem.quality, sitem.iLevel, sitem.reqLevel, sitem.class, sitem.subclass, sitem.maxStack, sitem.equipSlot, sitem.texture, sitem.vendorPrice = GetItemInfo(item.link)
         slot.itemTex:Show()
         slot.itemTex:SetTexture(sitem.texture)
         local r, g, b, _ = GetItemQualityColor(sitem.quality)
@@ -422,6 +385,94 @@ local function UpdateGearSlot(bot, slotNum)
         slot.qTex:Show()
         slot.qTex:SetVertexColor(r,g,b)
     end
+end
+
+function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex, onClick)
+    local slot =  CreateFrame("Button", nil, frame)
+    slot.id = id
+    print(slotSize)
+    slot:SetSize(slotSize, slotSize)
+    slot:SetScript("OnEnter", function(self, motion)
+        slot.hitex:Show()
+        if slot.item ~= nil then
+            _tooltips.tooltip:SetOwner(slot, "ANCHOR_RIGHT")
+            _tooltips.tooltip:SetHyperlink(slot.item.link)
+            _util.SetVertexColor(slot.hitex, slot.qColor)
+        end
+    end)
+    slot:SetScript("OnEnter", function(self, motion)
+        slot.hitex:Show()
+        if slot.item and slot.item.link then
+            _tooltips.tooltip:SetOwner(slot, "ANCHOR_RIGHT")
+            _tooltips.tooltip:SetHyperlink(slot.item.link)
+            _util.SetVertexColor(slot.hitex, slot.qColor)
+        end
+    end)
+    slot:SetScript("OnLeave", function(self, motion)
+        _tooltips.tooltip:Hide()
+        _util.SetVertexColor(slot.hitex, _data.colors.defaultSlotHighlight)
+        slot.hitex:Hide()
+    end)
+    slot:SetScript("OnClick", function(self, button, down)
+      if slot.item and slot.bot then
+        onClick(self, button, down)
+      end
+    end)
+
+    slot.SetItem = function (self, item)
+        self.item = item
+        if not item then
+            slot.item = nil
+            slot.itemTex:Hide()
+            slot.qTex:Hide()
+        else
+            local sitem = slot.item
+            sitem.name, sitem.link, sitem.quality, sitem.iLevel, sitem.reqLevel, sitem.class, sitem.subclass, sitem.maxStack, sitem.equipSlot, sitem.texture, sitem.vendorPrice = GetItemInfo(item.link)
+            slot.itemTex:Show()
+            slot.itemTex:SetTexture(sitem.texture)
+            slot.qColor = _data.colors.quality[sitem.quality]
+            _util.SetVertexColor(slot.qTex, slot.qColor)
+            slot.qTex:Show()
+        end
+    end
+
+    slot.bgTex = slot:CreateTexture(nil, "BACKGROUND")
+    bgTex = _eval(bgTex, bgTex, _data.textures.emptySlot)
+    slot.bgTex:SetTexture(bgTex)
+    slot.bgTex:SetPoint("TOPLEFT", 0, 0)
+    slot.bgTex:SetWidth(slotSize)
+    slot.bgTex:SetHeight(slotSize)
+    slot.bgTex:SetVertexColor(0.75,0.75,0.75)
+  
+    slot.itemTex = slot:CreateTexture(nil, "BORDER")
+    slot.itemTex:SetTexture(_data.textures.emptySlot)
+    slot.itemTex:SetPoint("TOPLEFT", 0, 0)
+    slot.itemTex:SetWidth(slotSize)
+    slot.itemTex:SetHeight(slotSize)
+    slot.itemTex:Hide()
+  
+    slot.qTex = slot:CreateTexture(nil, "OVERLAY")
+    slot.qTex:SetTexture(_data.textures.slotHi)
+    slot.qTex:SetTexCoord(0.216, 0.768, 0.232, 0.784)
+    slot.qTex:SetBlendMode("ADD")
+    slot.qTex:SetPoint("TOPLEFT", 0, 0)
+    slot.qTex:SetWidth(slotSize)
+    slot.qTex:SetHeight(slotSize)
+    slot.qTex:SetAlpha(0.75)
+    slot.qTex:SetVertexColor(1,1,1)
+    slot.qTex:Hide()
+  
+    slot.hitex = slot:CreateTexture(nil, "OVERLAY")
+    slot.hitex:SetTexture(_data.textures.slotHi)
+    slot.hitex:SetTexCoord(0.216, 0.768, 0.232, 0.784)
+    slot.hitex:SetBlendMode("ADD")
+    slot.hitex:SetPoint("TOPLEFT", 0, 0)
+    slot.hitex:SetWidth(slotSize)
+    slot.hitex:SetHeight(slotSize)
+    slot.hitex:SetAlpha(0.75)
+    _util.SetVertexColor(slot.hitex, _data.colors.defaultSlotHighlight)
+    slot.hitex:Hide()
+    return slot
 end
 
 -- supports NIL as arg, will clear everything
@@ -458,16 +509,16 @@ function PlayerbotsPanel:UpdateGearView(name)
         end
 
         local statusStr = "Level " .. bot.level 
-        _util:SetTextColor(PlayerbotsGearView.botDescription, _data.colors.gold)
+        _util.SetTextColor(PlayerbotsGearView.botDescription, _data.colors.gold)
       
         if not status.online then
             statusStr = statusStr .. " (Cached)"
-            _util:SetTextColor(PlayerbotsGearView.botDescription, _data.colors.gray)
+            _util.SetTextColor(PlayerbotsGearView.botDescription, _data.colors.gray)
         end
       
         PlayerbotsGearView.botName:SetText(bot.name)
         PlayerbotsGearView.botDescription:SetText(statusStr)
-        _util:SetTextColorToClass(PlayerbotsGearView.botName, bot.class)
+        _util.SetTextColorToClass(PlayerbotsGearView.botName, bot.class)
       
         if bot.currency then
             PlayerbotsGearView.txtGold:SetText(bot.currency.gold)
@@ -492,74 +543,19 @@ function PlayerbotsPanel:SetupGearSlot(id, x, y)
 
     local slots = PlayerbotsGearView.slots
     if slots[id] == nil then
-        slots[id] = CreateFrame("Button", nil, PlayerbotsGearView.frame)
-    end
-
-    local slot = slots[id]
-    slot.id = id
-    local slotSize = 38
-    slot:SetPoint("TOPLEFT", x, y)
-    slot:SetSize(slotSize, slotSize)
-    slot:SetScript("OnEnter", function(self, motion)
-        slot.hitex:Show()
-        if slot.item ~= nil and slot.item.link ~= nil then
-            _tooltips.tooltip:SetOwner(slot, "ANCHOR_RIGHT")
-            _tooltips.tooltip:SetHyperlink(slot.item.link)
-            slot.hitex:SetVertexColor(slot.qColor.r, slot.qColor.g, slot.qColor.b)
-        end
-    end)
-    slot:SetScript("OnLeave", function(self, motion)
-        local c = _data.colors.defaultSlotHighlight
-        slot.hitex:SetVertexColor( c.r, c.g, c.b)
-        slot.hitex:Hide()
-        _tooltips.tooltip:Hide()
-    end)
-    slot:SetScript("OnClick", function(self, button, down)
-        if slot.item and slot.bot then
-            if button == "LeftButton" then
-                SendChatMessage("ue " .. slot.item.link, "WHISPER", nil, slot.bot.name)
-                PlayerbotsPanel:RefreshSelection()
-            elseif button == "RightButton" then
+        local bgTex = _data.textures.slotIDbg[id]
+        local slot = PlayerbotsPanel.CreateSlot(PlayerbotsGearView.frame, 38, id, bgTex, function(self, button, down)
+            if self.item and self.bot then
+                if button == "LeftButton" then
+                    SendChatMessage("ue " .. self.item.link, "WHISPER", nil, self.bot.name)
+                    PlayerbotsPanel:RefreshSelection()
+                elseif button == "RightButton" then
+                end
             end
-        end
-    end)
-
-    slot.bgTex = slot:CreateTexture(nil, "BACKGROUND")
-    slot.bgTex:SetTexture(_data.textures.slotIDbg[id])
-    slot.bgTex:SetPoint("TOPLEFT", 0, 0)
-    slot.bgTex:SetWidth(slotSize)
-    slot.bgTex:SetHeight(slotSize)
-    slot.bgTex:SetVertexColor(0.75,0.75,0.75)
-
-    slot.itemTex = slot:CreateTexture(nil, "BORDER")
-    slot.itemTex:SetTexture(_data.textures.slotIDbg[id])
-    slot.itemTex:SetPoint("TOPLEFT", 0, 0)
-    slot.itemTex:SetWidth(slotSize)
-    slot.itemTex:SetHeight(slotSize)
-    slot.itemTex:Hide()
-
-    slot.qTex = slot:CreateTexture(nil, "OVERLAY")
-    slot.qTex:SetTexture(_data.textures.slotHi)
-    slot.qTex:SetTexCoord(0.216, 0.768, 0.232, 0.784)
-    slot.qTex:SetBlendMode("ADD")
-    slot.qTex:SetPoint("TOPLEFT", 0, 0)
-    slot.qTex:SetWidth(slotSize)
-    slot.qTex:SetHeight(slotSize)
-    slot.qTex:SetAlpha(0.75)
-    slot.qTex:SetVertexColor(1,1,1)
-    slot.qTex:Hide()
-
-    slot.hitex = slot:CreateTexture(nil, "OVERLAY")
-    slot.hitex:SetTexture(_data.textures.slotHi)
-    slot.hitex:SetTexCoord(0.216, 0.768, 0.232, 0.784)
-    slot.hitex:SetBlendMode("ADD")
-    slot.hitex:SetPoint("TOPLEFT", 0, 0)
-    slot.hitex:SetWidth(slotSize)
-    slot.hitex:SetHeight(slotSize)
-    slot.hitex:SetAlpha(0.75)
-    local c = _data.colors.defaultSlotHighlight
-    slot.hitex:SetVertexColor( c.r, c.g, c.b)
-    slot.hitex:Hide()
+        end)
+        slots[id] = slot 
+        slot:SetPoint("TOPLEFT", x, y)
+    end
 end
 
 function PlayerbotsPanel:DropItemSelected()
@@ -643,6 +639,20 @@ function PlayerbotsPanel:SetupGearFrame()
     ModelViewFrame.bgTex:SetWidth(ModelViewFrame:GetWidth())
     ModelViewFrame.bgTex:SetHeight(ModelViewFrame:GetHeight())
 
+    PlayerbotsGearView.updateGearButton = CreateFrame("Button", nil, PlayerbotsGear)
+    PlayerbotsGearView.updateGearButton:SetFrameStrata("DIALOG")
+    PlayerbotsGearView.updateGearButton:SetFrameLevel(1000)
+    PlayerbotsGearView.updateGearButton:SetPoint("BOTTOMLEFT", PlayerbotsGear,  45, 40)
+    PlayerbotsGearView.updateGearButton:SetSize(32,32)
+    PlayerbotsGearView.updateGearButton:SetNormalTexture(_data.textures.updateBotsUp)
+    PlayerbotsGearView.updateGearButton:SetPushedTexture(_data.textures.updateBotsDown)
+    PlayerbotsGearView.updateGearButton:SetScript("OnClick", function(self, button, down)
+        print("click")
+        _broker:StartQuery(QUERY_TYPE.GEAR, _selectedBot)
+    end)
+    PlayerbotsGearView.updateGearButton:EnableMouse(true)
+    _tooltips:AddInfoTooltip(PlayerbotsGearView.updateGearButton, _data.strings.tooltips.gearViewUpdateGear)
+
     PlayerbotsGearView.botName = PlayerbotsGear:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     PlayerbotsGearView.botName:SetText("No selection")
     PlayerbotsGearView.botName:SetJustifyH("LEFT")
@@ -653,7 +663,7 @@ function PlayerbotsPanel:SetupGearFrame()
     PlayerbotsGearView.botDescription:SetText("No selection")
     PlayerbotsGearView.botDescription:SetJustifyH("LEFT")
     PlayerbotsGearView.botDescription:SetPoint("TOPLEFT", PlayerbotsGear, 5, -18)
-    _util:SetTextColor(PlayerbotsGearView.botDescription, _data.colors.gold)
+    _util.SetTextColor(PlayerbotsGearView.botDescription, _data.colors.gold)
 
     local moneyposY = -15
     PlayerbotsGearView.iconCopper = PlayerbotsGear:CreateTexture(nil, "OVERLAY")
@@ -688,7 +698,6 @@ function PlayerbotsPanel:SetupGearFrame()
     PlayerbotsGearView.txtGold:SetJustifyH("LEFT")
     PlayerbotsGearView.txtGold:SetSize(40, 12)
     PlayerbotsGearView.txtGold:SetText("99999")
-
 
     PlayerbotsGearView.helpIcon = CreateFrame("Frame", nil, PlayerbotsGear)
     local helpIcon = PlayerbotsGearView.helpIcon
@@ -782,13 +791,20 @@ function PlayerbotsPanel:SetupGearFrame()
 
     _broker:RegisterGlobalCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, PlayerbotsGearView.onUpdatedEquipSlot)
 
+    PlayerbotsGearView.onUpdateAllSlots = function (bot)
+        if _selectedBot and bot == _selectedBot then
+            PlayerbotsPanel:UpdateGearView(bot.name)
+        end
+    end
+
+    _broker:RegisterGlobalCallback(CALLBACK_TYPE.EQUIPMENT_CHANGED, PlayerbotsGearView.onUpdateAllSlots)
 end
 
 function PlayerbotsPanel:CreateWindow()
     UIPanelWindows[PlayerbotsFrame:GetName()] = { area = "center", pushable = 0, whileDead = 1 }
     tinsert(UISpecialFrames, PlayerbotsFrame:GetName())
     PlayerbotsFrame:HookScript("OnUpdate", PlayerbotsPanel.Update)
-    PlayerbotsFrame:SetFrameStrata("DIALOG")
+    PlayerbotsFrame:SetFrameStrata("HIGH")
     PlayerbotsFrame:SetWidth(800)
     PlayerbotsFrame:SetHeight(420)
     PlayerbotsFrame:SetPoint("CENTER")
@@ -1008,7 +1024,7 @@ function PlayerbotsPanel:UpdateBotSelectorButton(name)
     oFrame:SetSize(width, height)
     
     oFrame.txtName:SetText(name .. " (" .. tostring(bot.level) .. ")")
-    _util:SetTextColorToClass(oFrame.txtName, bot.class)
+    _util.SetTextColorToClass(oFrame.txtName, bot.class)
     
     oFrame.btnAdd:SetSize(14,14)
     oFrame.btnAdd:SetPoint("BOTTOMLEFT", 4, 5)
@@ -1173,20 +1189,20 @@ function PlayerbotsPanel:AddWindowStyling(frame)
 	addonNameLabel:SetJustifyH("RIGHT")
 	addonNameLabel:SetPoint("TOPRIGHT", frame, -70, -5)
 	addonNameLabel:SetTextColor(0.6, 0.6, 1, 1)
-	_util:SetTextColor(addonNameLabel, _data.colors.gold)
+	_util.SetTextColor(addonNameLabel, _data.colors.gold)
 
     local versionLabel = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     versionLabel:SetText(PlayerbotsPanel.version)
 	versionLabel:SetJustifyH("RIGHT")
 	versionLabel:SetPoint("TOPRIGHT", frame, -30, -5)
-	_util:SetTextColor(versionLabel, _data.colors.gray)
+	_util.SetTextColor(versionLabel, _data.colors.gray)
 
     frame.activeTabLabel = frame:CreateFontString(nil, "ARTWORK", "WorldMapTextFont")
     frame.activeTabLabel:SetText("TABNAME")
 	frame.activeTabLabel:SetJustifyH("CENTER")
 	frame.activeTabLabel:SetPoint("TOP", frame, 0, -3)
     frame.activeTabLabel:SetTextHeight(14)
-    _util:SetTextColor(frame.activeTabLabel, _data.colors.gold)
+    _util.SetTextColor(frame.activeTabLabel, _data.colors.gold)
 
     frame.updateBotsBtn = CreateFrame("Button", nil, frame)
     frame.updateBotsBtn:SetPoint("TOPLEFT", -5, 5)
@@ -1259,7 +1275,7 @@ local function CreateTab(name, frame, tabNum, tabGroup)
     tab.name = name
     tab.num = tabNum
     tab.group = tabGroup
-    tab.object = _util:Where(PlayerbotsPanel.tabInitList, function(k,v)
+    tab.object = _util.Where(PlayerbotsPanel.tabInitList, function(k,v)
         if v.id == name then return true end
     end)
     tab.button = CreateTabButton(name, PlayerbotsFrame, tab)
@@ -1272,7 +1288,7 @@ local function CreateTab(name, frame, tabNum, tabGroup)
         bUseBackground = tab.object.useBackground
     end
     tab.outerframe = CreateFrame("Frame", nil, frame)
-    tab.outerframe:SetFrameStrata("DIALOG")
+    tab.outerframe:SetFrameStrata("HIGH")
 
     if bUseFullFrame then
         tab.outerframe:SetPoint("TOPLEFT", 169, -26)
@@ -1285,7 +1301,7 @@ local function CreateTab(name, frame, tabNum, tabGroup)
     end
 
     if bUseBackground then
-        local frameBg = tab.outerframe:CreateTexture(nil, "BACKGROUND")
+        local frameBg = tab.outerframe:CreateTexture(nil)
         frameBg:SetTexture(ROOT_PATH .. "textures\\tabBg.tga")
         frameBg:SetPoint("TOPLEFT", 0, 0)
         frameBg:SetWidth(tab.outerframe:GetWidth())
@@ -1293,33 +1309,83 @@ local function CreateTab(name, frame, tabNum, tabGroup)
     end
 
     tab.innerframe = CreateFrame("Frame", nil, tab.outerframe)
-    tab.innerframe:SetFrameStrata("DIALOG")
+    tab.innerframe:SetFrameStrata("HIGH")
     tab.innerframe:SetFrameLevel(200)
     tab.innerframe:SetPoint("TOPLEFT", 0, 0)
     tab.innerframe:SetWidth(tab.outerframe:GetWidth())
     tab.innerframe:SetHeight(tab.outerframe:GetHeight())
 
+    tab.sideButtons = {}
+    tab.activeSideButton = nil
+
+    tab.SetActiveSideButton = function (self, index)
+        local sideBtn = self.sideButtons[index]
+        if not sideBtn then return end
+        if self.activeSideButton then
+            self.activeSideButton:SetButtonState("NORMAL", false)
+            if self.activeSideButton.onDeactivate then
+                self.activeSideButton.onDeactivate()
+            end
+        end
+        self.activeSideButton = sideBtn
+        sideBtn:SetButtonState("PUSHED", true)
+        if sideBtn.onActivate then
+            PlaySound("INTERFACESOUND_CHARWINDOWTAB")
+            sideBtn.onActivate()
+        end
+    end
+    tab.CreateSideButton = function (self, icon, onActivate, onDeactivate)
+        local sideBtn = CreateFrame("Button", nil, self.outerframe)
+        local size = 54
+        sideBtn.idx = getn(tab.sideButtons) + 1
+        sideBtn.tab = self
+        
+        sideBtn:SetPoint("TOPRIGHT", self.outerframe, 65, 55 - (sideBtn.idx * (size - 4)))
+        sideBtn:SetSize(size,size)
+        sideBtn:SetNormalTexture(ROOT_PATH .. "textures\\sideTab_norm.tga")
+        sideBtn:SetHighlightTexture(ROOT_PATH .. "textures\\sideTab_hi.tga")
+        sideBtn:SetPushedTexture(ROOT_PATH .. "textures\\sideTab_push.tga")
+        sideBtn.icon = sideBtn:CreateTexture(nil, "OVERLAY", nil, -7)
+        sideBtn.icon:SetPoint("TOPLEFT", 3, -9)
+        sideBtn.icon:SetSize(37,37)
+        sideBtn.icon:SetTexture(icon)
+        sideBtn:EnableMouse(true)
+        sideBtn.onActivate = onActivate
+        sideBtn.onDeactivate = onDeactivate
+        tinsert(self.sideButtons, sideBtn)
+
+        sideBtn:SetScript("OnClick", function(self, button, down)
+            if self.tab.activeSideButton == self then return end
+            self.tab:SetActiveSideButton(self.idx)
+        end)
+    end
+
     if tab.object ~= nil then
         tab.object:Init(tab)
     end
 
-    tab.activate = function()
-        tab.button.frame:SetButtonState("PUSHED", true)
-        _util:SetTextColor(tab.button.text, _data.colors.white)
-        if tab.object ~= nil then
-            tab.outerframe:Show()
+    tab.activate = function(self)
+        self.button.frame:SetButtonState("PUSHED", true)
+        _util.SetTextColor(self.button.text, _data.colors.white)
+        if self.object ~= nil then
+            self.outerframe:Show()
             frame.activeTabLabel:SetText(tab.name)
-            tab.object:OnActivate(tab)
+            self.object:OnActivate(tab)
+            if not self.activeSideButton then
+                local defaultActiveSideButton = _eval(self.object.defaultActiveSideButton, self.object.defaultActiveSideButton, 1)
+                self:SetActiveSideButton(defaultActiveSideButton)
+            end
         end
     end
-    tab.deactivate = function()
-        tab.button.frame:SetButtonState("NORMAL", false)
-        _util:SetTextColor(tab.button.text, _data.colors.gold)
-        if tab.object ~= nil then
-            tab.outerframe:Hide()
-            tab.object:OnDeactivate(tab)
+    tab.deactivate = function(self)
+        self.button.frame:SetButtonState("NORMAL", false)
+        _util.SetTextColor(self.button.text, _data.colors.gold)
+        if self.object ~= nil then
+            self.outerframe:Hide()
+            self.object:OnDeactivate(self)
         end
     end
+
     tab.outerframe:Hide()
     return tab
 end
@@ -1330,7 +1396,7 @@ local function CreateTabGroup(tabsList, defaultTabName)
     group.tabs = {}
     group.activeTab = nil
     group.setTabActive = function(name)
-        local foundTab = _util:Where(group.tabs, function(k,v)
+        local foundTab = _util.Where(group.tabs, function(k,v)
             if k == name then return true end
         end)
         if group.activeTab == foundTab then
@@ -1339,11 +1405,15 @@ local function CreateTabGroup(tabsList, defaultTabName)
       
         if foundTab ~= nil then
             if foundTab ~= group.activeTab and group.activeTab ~= nil then
-                group.activeTab.deactivate() -- disable active tab first
+                group.activeTab:deactivate() -- disable active tab first
             end
             group.activeTab = foundTab
-            group.activeTab.activate()
-            PlaySound(_data.sounds.onTabSwitch)
+            group.activeTab:activate()
+            if group.activeTab.object.customSound then
+                PlaySound(group.activeTab.object.customSound)
+            else
+                PlaySound(_data.sounds.onTabSwitch)
+            end
         end
     end
     

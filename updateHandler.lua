@@ -20,7 +20,7 @@ function PlayerbotsPanelUpdateHandler:RegisterHandler(func)
 end
 
 function PlayerbotsPanelUpdateHandler:UnregisterHandler(func)
-    local index = _util:IndexOf(_updateHandler.onUpdate, func)
+    local index = _util.IndexOf(_updateHandler.onUpdate, func)
     if index > -1 then
         tremove(_updateHandler.onUpdate, index)
     end
