@@ -15,7 +15,7 @@ function PlayerbotsPanelTooltips:Init(parentFrame)
 end
 
 -- Assumes whatever is passed as target is Frame/Button etc and will override OnEnter/OnLeave
-function PlayerbotsPanelTooltips:AddInfoTooltip(target, strTooltip)
+function PlayerbotsPanelTooltips.AddInfoTooltip(target, strTooltip)
   if target == nil or strTooltip == nil then
     error("AddInfoTooltip - nil values passed")
     return

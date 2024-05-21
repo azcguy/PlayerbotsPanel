@@ -580,7 +580,7 @@ queryTemplates[QUERY_TYPE.INVENTORY] =
             local bagLink = _parser:stringToEnd()
 
             local bag = bot.bags[bagNum]
-            bag:InitBag(bagSize, bagLink)
+            PlayerbotsPanel.InitBag(bag, bagSize, bagLink)
             query.ctx1[bagNum] = true -- track which bags are added by the query
         elseif subtype == 'i' then
             local bagNum = _parser:nextInt()
@@ -589,14 +589,14 @@ queryTemplates[QUERY_TYPE.INVENTORY] =
             local itemLink = _parser:stringToEnd()
 
             local bag = bot.bags[bagNum]
-            bag:SetItem(bagSlot, itemCount, itemLink)
+            PlayerbotsPanel.SetBagItem(bag, bagSlot, itemCount, itemLink)
         end
     end,
     onFinalize       = function(query)
         for i=1, 4 do
             local receivedBag = query.ctx1[i]
             if not receivedBag then
-                query.bot.bags[i]:InitBag(0, nil)
+                PlayerbotsPanel.InitBag(query.bot.bags[i], 0, nil)
             end
         end
     end,

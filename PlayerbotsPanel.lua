@@ -315,7 +315,7 @@ function PlayerbotsPanel.SetBagItem(bag, slotNum, count, link)
         if not slot then return end -- no incoming link and no existing slot, do nothing
         local existingLink = slot.link
         if existingLink then -- removed an item
-            bag.freeSlots = bag.freeSlots - 1
+            bag.freeSlots = bag.freeSlots + 1
         end
         contents[slotNum] = nil
         releaseBagSlot(slot)
@@ -323,6 +323,7 @@ function PlayerbotsPanel.SetBagItem(bag, slotNum, count, link)
         local added = false
         if not slot then 
             slot = getBagSlot()
+            contents[slotNum] = slot
             added = true
         else
             local existingLink = slot.link
@@ -333,7 +334,7 @@ function PlayerbotsPanel.SetBagItem(bag, slotNum, count, link)
         slot.link = link
         slot.count = count
         if added then
-            bag.freeSlots = bag.freeSlots + 1
+            bag.freeSlots = bag.freeSlots - 1
         end
     end
 end
@@ -500,7 +501,28 @@ local function UpdateGearSlot(bot, slotNum)
     end
 end
 
-function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex, onClick, onEnter, onLeave)
+local _pool_uislot = {}
+local _pool_uislot_count = 0
+local function getUISlot()
+    if _pool_uislot_count == 0 then
+        return { link = nil, count = 0 }
+    else
+        local slot = _pool_uislot[_pool_uislot_count]
+        _pool_uislot[_pool_uislot_count] = nil
+        _pool_uislot_count = _pool_uislot_count - 1
+        return slot
+    end
+end
+
+local function releaseUISlot(slot)
+    if not slot then return end
+    _pool_uislot_count = _pool_uislot_count + 1
+    _pool_uislot[_pool_uislot_count] = slot
+    slot.link = nil
+    slot.count = 0
+end
+
+function PlayerbotsPanel.GetOrCreateSlot(frame, slotSize, id, bgTex, onClick, onEnter, onLeave)
     local slot =  CreateFrame("Button", nil, frame)
     slot.id = id
     slot:SetSize(slotSize, slotSize)
@@ -654,7 +676,7 @@ function PlayerbotsPanel:SetupGearSlot(id, x, y)
     local slots = PlayerbotsGearView.slots
     if slots[id] == nil then
         local bgTex = _data.textures.slotIDbg[id]
-        local slot = PlayerbotsPanel.CreateSlot(PlayerbotsGearView.frame, 38, id, bgTex, function(self, button, down)
+        local slot = PlayerbotsPanel.GetOrCreateSlot(PlayerbotsGearView.frame, 38, id, bgTex, function(self, button, down)
             if self.item and self.bot then
                 if button == "LeftButton" then
                     SendChatMessage("ue " .. self.item.link, "WHISPER", nil, self.bot.name)
@@ -762,7 +784,7 @@ function PlayerbotsPanel:SetupGearFrame()
         _broker:StartQuery(QUERY_TYPE.GEAR, _selectedBot)
     end)
     PlayerbotsGearView.updateGearButton:EnableMouse(true)
-    _tooltips:AddInfoTooltip(PlayerbotsGearView.updateGearButton, _data.strings.tooltips.gearViewUpdateGear)
+    _tooltips.AddInfoTooltip(PlayerbotsGearView.updateGearButton, _data.strings.tooltips.gearViewUpdateGear)
 
     PlayerbotsGearView.botName = PlayerbotsGear:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     PlayerbotsGearView.botName:SetText("No selection")
@@ -822,7 +844,7 @@ function PlayerbotsPanel:SetupGearFrame()
     helpIcon.tex:SetPoint("TOPLEFT")
     helpIcon.tex:SetSize(helpIcon:GetWidth(), helpIcon:GetHeight())
     helpIcon.tex:SetTexture("Interface\\GossipFrame\\IncompleteQuestIcon.blp")
-    _tooltips:AddInfoTooltip(helpIcon, _data.strings.tooltips.gearViewHelp)
+    _tooltips.AddInfoTooltip(helpIcon, _data.strings.tooltips.gearViewHelp)
   
 -- Inventory slots
 -- INVSLOT_AMMO    = 0;
@@ -1018,7 +1040,7 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
 
     if oFrame.btnAdd == nil then
         oFrame.btnAdd = CreateFrame("Button", nil, oFrame)
-        _tooltips:AddInfoTooltip(oFrame.btnAdd, _data.strings.tooltips.addBot)
+        _tooltips.AddInfoTooltip(oFrame.btnAdd, _data.strings.tooltips.addBot)
         oFrame.btnAdd:SetNormalTexture("Interface\\BUTTONS\\UI-AttributeButton-Encourage-Up")
         oFrame.btnAdd:SetPushedTexture("Interface\\BUTTONS\\UI-AttributeButton-Encourage-Down.blp")
         oFrame.btnAdd:SetHighlightTexture("Interface\\BUTTONS\\UI-AttributeButton-Encourage-Hilight.blp")
@@ -1032,7 +1054,7 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
         oFrame.btnInvite = CreateFrame("Button", nil, oFrame)
         oFrame.btnInvite:SetNormalTexture("Interface\\FriendsFrame\\UI-Toast-FriendRequestIcon.blp")
         oFrame.btnInvite:SetPushedTexture("Interface\\FriendsFrame\\UI-Toast-FriendRequestIcon.blp")
-        _tooltips:AddInfoTooltip(oFrame.btnInvite, _data.strings.tooltips.inviteBot)
+        _tooltips.AddInfoTooltip(oFrame.btnInvite, _data.strings.tooltips.inviteBot)
         oFrame.btnInvite:SetScript("OnClick", function(self, button, down)
             InviteUnit(name)
             PlayerbotsPanel:RefreshSelection()
@@ -1043,7 +1065,7 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
         oFrame.btnUninvite = CreateFrame("Button", nil, oFrame)
         oFrame.btnUninvite:SetNormalTexture("Interface\\BUTTONS\\UI-GroupLoot-Pass-Up.blp")
         oFrame.btnUninvite:SetHighlightTexture("Interface\\BUTTONS\\UI-GroupLoot-Pass-Up.blp")
-        _tooltips:AddInfoTooltip(oFrame.btnUninvite,_data.strings.tooltips.uninviteBot )
+        _tooltips.AddInfoTooltip(oFrame.btnUninvite,_data.strings.tooltips.uninviteBot )
         oFrame.btnUninvite:SetScript("OnClick", function(self, button, down)
             UninviteUnit(name)
             PlayerbotsPanel:RefreshSelection()
@@ -1054,7 +1076,7 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
         oFrame.btnRemove = CreateFrame("Button", nil, oFrame)
         oFrame.btnRemove:SetNormalTexture("Interface\\BUTTONS\\UI-MinusButton-Up.blp")
         oFrame.btnRemove:SetPushedTexture("Interface\\BUTTONS\\UI-MinusButton-Down.blp")
-        _tooltips:AddInfoTooltip(oFrame.btnRemove, _data.strings.tooltips.removeBot)
+        _tooltips.AddInfoTooltip(oFrame.btnRemove, _data.strings.tooltips.removeBot)
         oFrame.btnRemove:SetScript("OnClick", function(self, button, down)
             SendChatMessage(".playerbots bot remove " .. name)
             PlayerbotsPanel:RefreshSelection()
@@ -1328,7 +1350,7 @@ function PlayerbotsPanel:AddWindowStyling(frame)
         --PlayerbotsPanel:UpdateBots()
         print("This will start queries in the future, now does nothing")
     end)
-    _tooltips:AddInfoTooltip(frame.updateBotsBtn, _data.strings.tooltips.updateBots)
+    _tooltips.AddInfoTooltip(frame.updateBotsBtn, _data.strings.tooltips.updateBots)
 end
 
 local tabOffsetLeft = 0
@@ -1450,7 +1472,7 @@ local function CreateTab(name, frame, tabNum, tabGroup)
             sideBtn.onActivate()
         end
     end
-    tab.CreateSideButton = function (self, icon, onActivate, onDeactivate)
+    tab.CreateSideButton = function (self, icon, onActivate, onDeactivate, stringTooltip)
         local sideBtn = CreateFrame("Button", nil, self.outerframe)
         local size = 54
         sideBtn.idx = getn(tab.sideButtons) + 1
@@ -1468,6 +1490,10 @@ local function CreateTab(name, frame, tabNum, tabGroup)
         sideBtn:EnableMouse(true)
         sideBtn.onActivate = onActivate
         sideBtn.onDeactivate = onDeactivate
+        sideBtn.stringTooltip = stringTooltip
+
+        _tooltips.AddInfoTooltip(sideBtn, stringTooltip)
+
         tinsert(self.sideButtons, sideBtn)
 
         sideBtn:SetScript("OnClick", function(self, button, down)

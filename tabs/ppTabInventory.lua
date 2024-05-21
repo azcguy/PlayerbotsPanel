@@ -33,20 +33,24 @@ function PlayerbotsPanelTabInventory:Init(tab)
     _tab = tab
     _frame = tab.innerframe
 
-    _bagFrames[1] = _self.CreateBagsTab(false)
-
-
-    _bagFrames[2] = _self.CreateBagsTab(true)
+    _bagFrames[1] = _self.CreateBagsTab(1) -- bags
+    _bagFrames[2] = _self.CreateBagsTab(2) -- bank
+    _bagFrames[3] = _self.CreateBagsTab(3) -- keyring
 
     tab:CreateSideButton("Interface\\ICONS\\INV_Misc_Bag_08.blp", 
         function ()
             PlayerbotsPanelTabInventory.ActivateBagsFrame(1)
-        end, nil)
+        end, nil, "Bags")
 
     tab:CreateSideButton("Interface\\ICONS\\INV_Misc_Coin_02.blp", 
         function ()
             PlayerbotsPanelTabInventory.ActivateBagsFrame(2)
-        end, nil)
+        end, nil, "Bank")
+
+    tab:CreateSideButton("Interface\\ContainerFrame\\KeyRing-Bag-Icon.blp", 
+        function ()
+            PlayerbotsPanelTabInventory.ActivateBagsFrame(3)
+        end, nil, "Keyring")
 
     PlayerbotsPanelTabInventory.ActivateBagsFrame(1)
     local step = 35
@@ -54,7 +58,8 @@ function PlayerbotsPanelTabInventory:Init(tab)
     local frame = _bagFrames[1].bagsframe:GetScrollChild()
     for y=0, 16 do
         for x = 0, 10 do
-            local slot = PlayerbotsPanel.CreateSlot(frame, 35, i, nil, nil)
+            local slot = PlayerbotsPanel.GetOrCreateSlot(frame, 35, i, nil, nil)
+            slot.bgTex:SetVertexColor(0.4,0.4,0.4)
             slot:SetPoint("TOPLEFT", x * step, y * step * -1)
             i = i + 1
         end
@@ -73,7 +78,7 @@ function  PlayerbotsPanelTabInventory.ActivateBagsFrame(index) -- 1 bags, 2 bank
     end
 end
 
-function  PlayerbotsPanelTabInventory.CreateBagsTab(isBank)
+function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
     local topBarHeight = _cfg.inventory.topbarHeight
     -- create internal frame
     local width = _frame:GetWidth()
@@ -130,20 +135,10 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(isBank)
     bagsframe.scroll:SetSize(bagsframe:GetWidth(), bagsframe:GetHeight())
     iframe.bagslots = {}
 
-    if isBank then
-        local numSlots = 7
-        for i=1, numSlots do
-            local bagSlot = PlayerbotsPanel.CreateSlot(iframe.topbar, 24, i, nil, nil)
-            bagSlot:SetPoint("TOPLEFT", 4 + (26 * (i-1)), -4)
-            bagSlot:SetFrameLevel(150)
-            iframe.bagslots[i] = bagSlot
-        end
-
-
-    else
+    if bagtype == 1 then -- bags
         local numSlots = 5
         for i=1, numSlots do
-            local bagSlot = PlayerbotsPanel.CreateSlot(iframe.topbar, 24, i, nil, nil)
+            local bagSlot = PlayerbotsPanel.GetOrCreateSlot(iframe.topbar, 24, i, nil, nil)
             bagSlot:SetPoint("TOPRIGHT", - (26 * (i-1)), -4)
             bagSlot:SetFrameLevel(150)
             iframe.bagslots[i] = bagSlot
@@ -165,7 +160,21 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(isBank)
             _broker:StartQuery(QUERY_TYPE.INVENTORY, PlayerbotsPanel:GetSelectedBot())
         end)
         iframe.updateBagsBtn:EnableMouse(true)
-        _tooltips:AddInfoTooltip(PlayerbotsGearView.updateGearButton, _data.strings.tooltips.gearViewUpdateGear)
+        _tooltips.AddInfoTooltip(PlayerbotsGearView.updateGearButton, _data.strings.tooltips.gearViewUpdateGear)
+    elseif bagtype == 2 then -- bank
+        local numSlots = 8
+        for i=1, numSlots do
+            local bagSlot = PlayerbotsPanel.GetOrCreateSlot(iframe.topbar, 24, i, nil, nil)
+            bagSlot:SetPoint("TOPLEFT", 4 + (26 * (i-1)), -4)
+            bagSlot:SetFrameLevel(150)
+            iframe.bagslots[i] = bagSlot
+
+            if i == 1 then -- backpack
+                bagSlot.bgTex:SetTexture("Interface\\ICONS\\INV_Misc_Coin_02.blp")
+            end
+        end
+    elseif bagtype == 3 then -- keyring
+        -- no bagslots
     end
 
 
