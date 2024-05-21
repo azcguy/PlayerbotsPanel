@@ -65,6 +65,7 @@ PlayerbotsPanel.commands = {
                 if _dbchar then
                     _dbchar.bots = {}
                 end
+                ReloadUI()
             end
         },
         dumpStatus = {
@@ -220,6 +221,10 @@ function PlayerbotsPanel:GetBot(name)
     return nil
 end
 
+function  PlayerbotsPanel:GetSelectedBot()
+    return _selectedBot
+end
+
 function PlayerbotsPanel:ExtractTargetData()
     local _name = UnitName("target")
     local race, racetoken = UnitRace("target")
@@ -255,6 +260,93 @@ function PlayerbotsPanel:CreateBotData(name)
     PlayerbotsPanel:ValidateBotData(bot)
     _dbchar.bots[name] = bot
     return bot
+end
+
+
+local _pool_bagslot = {}
+local _pool_bagslot_count = 0
+local function getBagSlot()
+    if _pool_bagslot_count == 0 then
+        return { link = nil, count = 0 }
+    else
+        local slot = _pool_bagslot[_pool_bagslot_count]
+        _pool_bagslot[_pool_bagslot_count] = nil
+        _pool_bagslot_count = _pool_bagslot_count - 1
+        return slot
+    end
+end
+
+local function releaseBagSlot(slot)
+    if not slot then return end
+    _pool_bagslot_count = _pool_bagslot_count + 1
+    _pool_bagslot[_pool_bagslot_count] = slot
+    slot.link = nil
+    slot.count = 0
+end
+
+function  PlayerbotsPanel.InitBag(bag, size, link)
+    bag.link = link
+    bag.size = size
+    local contents = bag.contents
+    local currentSize = getn(contents)
+    for i = 1, currentSize do
+        releaseBagSlot(contents[i])
+        contents[i] = nil
+    end
+    wipe(contents)
+    --if size > 0 then
+    --    for i=1, size do
+    --        contents[i] = getBagSlot()
+    --    end
+    --end
+end
+
+function PlayerbotsPanel.SetBagItem(bag, slotNum, count, link)
+    local size = bag.size
+    local contents = bag.contents
+    if slotNum > size then
+        _debug.LevelDebug(1, "Slot num is larger than bag size!")
+        return
+    end
+
+    local slot = contents[slotNum]
+
+    if not link then
+        if not slot then return end -- no incoming link and no existing slot, do nothing
+        local existingLink = slot.link
+        if existingLink then -- removed an item
+            bag.freeSlots = bag.freeSlots - 1
+        end
+        contents[slotNum] = nil
+        releaseBagSlot(slot)
+    else
+        local added = false
+        if not slot then 
+            slot = getBagSlot()
+            added = true
+        else
+            local existingLink = slot.link
+            if not existingLink then -- added item
+                added = true
+            end
+        end
+        slot.link = link
+        slot.count = count
+        if added then
+            bag.freeSlots = bag.freeSlots + 1
+        end
+    end
+end
+
+function PlayerbotsPanel:CreateBag(name, size)
+    local bag = {}
+    bag.name = name
+    bag.link = nil
+    bag.freeSlots = size
+    bag.size = size
+    bag.contents = {}
+    PlayerbotsPanel.InitBag(bag, bag.size, nil)
+    return bag
 end
 
 --- May seem overboard but it allows to adjust the layout of the data after it was already serialized
@@ -303,18 +395,39 @@ function PlayerbotsPanel:ValidateBotData(bot)
     EnsureField(bot.currency, "other", {})
 
     EnsureField(bot, "items", {})
+    for i=0, 19 do
+        EnsureField(bot.items, i, {})
+    end
     
+    
+    --              -2: Keyring
+    --              -1 Main storage area in the bank
+    --              0: Backpack
+    --              1 through NUM_BAG_SLOTS: Bag slots (as presented in the default UI, numbered right to left)
+    --              NUM_BAG_SLOTS + 1 through NUM_BAG_SLOTS + NUM_BANKBAGSLOTS: Bank bag slots (as presented in the default UI, numbered left to right)
+
+
     EnsureField(bot, "bags", {})
-    EnsureField(bot.bags,1, {})
-    EnsureField(bot.bags[1], "link", nil)
-    EnsureField(bot.bags[1], "count", 0)
-    EnsureField(bot.bags[1], "max", 16)
-    EnsureField(bot.bags[1], "contents", {})
+    EnsureField(bot.bags, -2, PlayerbotsPanel:CreateBag("Keyring", 32))
+    EnsureField(bot.bags, -1, PlayerbotsPanel:CreateBag("Bank Storage", 28)) -- bank 0
+    EnsureField(bot.bags, 0,  PlayerbotsPanel:CreateBag("Backpack", 16)) 
+    EnsureField(bot.bags, 1,  PlayerbotsPanel:CreateBag(nil, 0))
+    EnsureField(bot.bags, 2,  PlayerbotsPanel:CreateBag(nil, 0))
+    EnsureField(bot.bags, 3,  PlayerbotsPanel:CreateBag(nil, 0))
+    EnsureField(bot.bags, 4,  PlayerbotsPanel:CreateBag(nil, 0))
+    EnsureField(bot.bags, 5,  PlayerbotsPanel:CreateBag(nil, 0)) -- bank 1
+    EnsureField(bot.bags, 6,  PlayerbotsPanel:CreateBag(nil, 0)) -- bank 2
+    EnsureField(bot.bags, 7,  PlayerbotsPanel:CreateBag(nil, 0)) -- bank 3
+    EnsureField(bot.bags, 8,  PlayerbotsPanel:CreateBag(nil, 0)) -- bank 4
+    EnsureField(bot.bags, 9,  PlayerbotsPanel:CreateBag(nil, 0)) -- bank 5
+    EnsureField(bot.bags, 10, PlayerbotsPanel:CreateBag(nil, 0)) -- bank 6
+    EnsureField(bot.bags, 11, PlayerbotsPanel:CreateBag(nil, 0)) -- bank 7
 end
 
 function PlayerbotsPanel:RegisterByName(name)
     if _dbchar.bots[name] == nil then
         _dbchar.bots[name] = PlayerbotsPanel:CreateBotData(name)
+        _broker:DoHandshakeAfterRegistration(name)
     end
     PlayerbotsPanel:UpdateBotSelector()
     PlayerbotsPanel:SetSelectedBot(name)
@@ -387,10 +500,9 @@ local function UpdateGearSlot(bot, slotNum)
     end
 end
 
-function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex, onClick)
+function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex, onClick, onEnter, onLeave)
     local slot =  CreateFrame("Button", nil, frame)
     slot.id = id
-    print(slotSize)
     slot:SetSize(slotSize, slotSize)
     slot:SetScript("OnEnter", function(self, motion)
         slot.hitex:Show()
@@ -398,20 +510,18 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex, onClick)
             _tooltips.tooltip:SetOwner(slot, "ANCHOR_RIGHT")
             _tooltips.tooltip:SetHyperlink(slot.item.link)
             _util.SetVertexColor(slot.hitex, slot.qColor)
-        end
-    end)
-    slot:SetScript("OnEnter", function(self, motion)
-        slot.hitex:Show()
-        if slot.item and slot.item.link then
-            _tooltips.tooltip:SetOwner(slot, "ANCHOR_RIGHT")
-            _tooltips.tooltip:SetHyperlink(slot.item.link)
-            _util.SetVertexColor(slot.hitex, slot.qColor)
+            if onEnter then
+                onEnter(self)
+            end
         end
     end)
     slot:SetScript("OnLeave", function(self, motion)
         _tooltips.tooltip:Hide()
         _util.SetVertexColor(slot.hitex, _data.colors.defaultSlotHighlight)
         slot.hitex:Hide()
+        if onLeave then
+            onLeave(self)
+        end
     end)
     slot:SetScript("OnClick", function(self, button, down)
       if slot.item and slot.bot then
@@ -646,6 +756,7 @@ function PlayerbotsPanel:SetupGearFrame()
     PlayerbotsGearView.updateGearButton:SetSize(32,32)
     PlayerbotsGearView.updateGearButton:SetNormalTexture(_data.textures.updateBotsUp)
     PlayerbotsGearView.updateGearButton:SetPushedTexture(_data.textures.updateBotsDown)
+    PlayerbotsGearView.updateGearButton:SetHighlightTexture(_data.textures.updateBotsHi)
     PlayerbotsGearView.updateGearButton:SetScript("OnClick", function(self, button, down)
         print("click")
         _broker:StartQuery(QUERY_TYPE.GEAR, _selectedBot)
@@ -783,7 +894,7 @@ function PlayerbotsPanel:SetupGearFrame()
     PlayerbotsPanel:SetupGearSlot(INVSLOT_TRINKET2 + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
 
-    PlayerbotsGearView.onUpdatedEquipSlot = function(bot, slotNum, itemLink)
+    PlayerbotsGearView.onUpdatedEquipSlot = function(bot, slotNum)
         if bot == _selectedBot then 
             UpdateGearSlot(bot, slotNum)
         end
@@ -862,14 +973,17 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
     
     rootFrame = CreateFrame("Frame", nil, PlayerbotsPanel.botSelectorFrame)
     botSelectorButtons[name] = rootFrame
+    rootFrame.name = name
 
     rootFrame.statusUpdateHandler = function(bot, status)
-        PlayerbotsPanel:UpdateBotSelectorButton(bot.name)
+        local name = bot.name
+        PlayerbotsPanel:UpdateBotSelectorButton(name)
         if bot == _selectedBot then
-            PlayerbotsPanel:UpdateGearView(bot.name)
+            PlayerbotsPanel:UpdateGearView(name)
         end
     end
     _broker:RegisterCallback(CALLBACK_TYPE.STATUS_CHANGED, name, rootFrame.statusUpdateHandler)
+    _broker:RegisterCallback(CALLBACK_TYPE.LEVEL_CHANGED, name, rootFrame.statusUpdateHandler)
 
 
     if rootFrame.secureBtn == nil then
@@ -1209,8 +1323,10 @@ function PlayerbotsPanel:AddWindowStyling(frame)
     frame.updateBotsBtn:SetSize(30,30)
     frame.updateBotsBtn:SetNormalTexture(_data.textures.updateBotsUp)
     frame.updateBotsBtn:SetPushedTexture(_data.textures.updateBotsDown)
+    frame.updateBotsBtn:SetHighlightTexture(_data.textures.updateBotsHi)
     frame.updateBotsBtn:SetScript("OnClick", function(self, button, down)
-        PlayerbotsPanel:UpdateBots()
+        --PlayerbotsPanel:UpdateBots()
+        print("This will start queries in the future, now does nothing")
     end)
     _tooltips:AddInfoTooltip(frame.updateBotsBtn, _data.strings.tooltips.updateBots)
 end

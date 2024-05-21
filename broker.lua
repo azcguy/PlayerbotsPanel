@@ -70,50 +70,49 @@ local _eval = _util.CompareAndReturn
 
 local MSG_SEPARATOR = ":"
 local MSG_SEPARATOR_BYTE = _strbyte(":")
-local BYTE_ONE = _strbyte("1")
-local BYTE_ZERO = _strbyte("0")
 local FLOAT_DOT_BYTE = _strbyte(".")
+local BYTE_ZERO = _strbyte("0")
 local MSG_HEADER = {}
 local NULL_LINK = "~"
 local UTF8_NUM_FIRST = _strbyte("1") -- 49
 local UTF8_NUM_LAST = _strbyte("9") -- 57
 
-MSG_HEADER.SYSTEM = _strbyte("s")
-MSG_HEADER.REPORT = _strbyte("r")
-MSG_HEADER.QUERY = _strbyte("q")
+MSG_HEADER.SYSTEM =             _strbyte("s")
+MSG_HEADER.REPORT =             _strbyte("r")
+MSG_HEADER.QUERY =              _strbyte("q")
+MSG_HEADER.COMMAND =            _strbyte("c")
 
 PlayerbotsBrokerReportType = {}
 local REPORT_TYPE = PlayerbotsBrokerReportType
-REPORT_TYPE.ITEM_EQUIPPED = _strbyte("g") -- gear item equipped or unequipped
-REPORT_TYPE.CURRENCY = _strbyte("c") -- currency changed
-REPORT_TYPE.INVENTORY = _strbyte("i") -- inventory changed (bag changed, item added / removed / destroyed)
-REPORT_TYPE.TALENTS = _strbyte("t") -- talent learned / spec changed / talents reset
-REPORT_TYPE.SPELLS = _strbyte("s") -- spell learned
-REPORT_TYPE.QUEST = _strbyte("q") -- single quest accepted, abandoned, changed, completed
-REPORT_TYPE.EXPERIENCE = _strbyte("e") -- level, experience
-REPORT_TYPE.STATS = _strbyte("S") -- all stats and combat ratings
+REPORT_TYPE.ITEM_EQUIPPED =     _strbyte("g") -- gear item equipped or unequipped
+REPORT_TYPE.CURRENCY =          _strbyte("c") -- currency changed
+REPORT_TYPE.INVENTORY =         _strbyte("i") -- inventory changed (bag changed, item added / removed / destroyed)
+REPORT_TYPE.TALENTS =           _strbyte("t") -- talent learned / spec changed / talents reset
+REPORT_TYPE.SPELLS =            _strbyte("s") -- spell learned
+REPORT_TYPE.QUEST =             _strbyte("q") -- single quest accepted, abandoned, changed, completed
+REPORT_TYPE.EXPERIENCE =        _strbyte("e") -- level, experience
+REPORT_TYPE.STATS =             _strbyte("S") -- all stats and combat ratings
 
 local SYS_MSG_TYPE = {}
-SYS_MSG_TYPE.HANDSHAKE = _strbyte("h")
-SYS_MSG_TYPE.PING = _strbyte("p")
-SYS_MSG_TYPE.LOGOUT = _strbyte("l")
-
+SYS_MSG_TYPE.HANDSHAKE =        _strbyte("h")
+SYS_MSG_TYPE.PING =             _strbyte("p")
+SYS_MSG_TYPE.LOGOUT =           _strbyte("l")
 
 PlayerbotsBrokerQueryType = {}
 local QUERY_TYPE = PlayerbotsBrokerQueryType
-QUERY_TYPE.WHO = _strbyte("w") -- level, class, spec, location, experience and more
-QUERY_TYPE.CURRENCY = _strbyte("c") -- money, honor, tokens
-QUERY_TYPE.GEAR = _strbyte("g") -- only what is equipped
-QUERY_TYPE.INVENTORY = _strbyte("i") -- whats in the bags and bags themselves
-QUERY_TYPE.TALENTS = _strbyte("t") -- talents and talent points 
-QUERY_TYPE.SPELLS = _strbyte("s") -- spellbook
-QUERY_TYPE.QUESTS = _strbyte("q") -- all quests
-QUERY_TYPE.STRATEGIES = _strbyte("S")
+QUERY_TYPE.WHO        =         _strbyte("w") -- level, class, spec, location, experience and more
+QUERY_TYPE.CURRENCY   =         _strbyte("c") -- money, honor, tokens
+QUERY_TYPE.GEAR       =         _strbyte("g") -- only what is equipped
+QUERY_TYPE.INVENTORY  =         _strbyte("i") -- whats in the bags and bags themselves
+QUERY_TYPE.TALENTS    =         _strbyte("t") -- talents and talent points 
+QUERY_TYPE.SPELLS     =         _strbyte("s") -- spellbook
+QUERY_TYPE.QUESTS     =         _strbyte("q") -- all quests
+QUERY_TYPE.STRATEGIES =         _strbyte("S")
 
 PlayerbotsBrokerQueryOpcode = {}
 local QUERY_OPCODE = PlayerbotsBrokerQueryOpcode
-QUERY_OPCODE.PROGRESS = _strbyte("p") -- query is in progress
-QUERY_OPCODE.FINAL = _strbyte("f") -- final message of the query, contains the final payload, and closes query
+QUERY_OPCODE.PROGRESS =         _strbyte("p") -- query is in progress
+QUERY_OPCODE.FINAL    =         _strbyte("f") -- final message of the query, contains the final payload, and closes query
 -- bytes 49 - 57 are errors
 
 
@@ -287,6 +286,29 @@ _parser.nextBool = function (self)
     end
 end
 
+_parser.nextChar = function (self)
+    if self.broken then
+        return false
+    end
+    local strbyte = _strbyte
+    local strchar = _strchar
+    local p = self.payload
+    local result = nil
+    for i = self.cursor, self.len+1 do
+        local c = strbyte(p, i)
+        if c == nil or c == self.separator then
+            self.cursor = i + 1
+            self.bufferCount = 0
+            return result
+        else
+            self.cursor = i
+            if not result then
+                result = strchar(c)
+            end
+        end
+    end
+end
+
 -----------------------------------------------------------------------------
 ----- PARSER END
 -----------------------------------------------------------------------------
@@ -352,16 +374,17 @@ function PlayerbotsBroker:UnegisterCallback(ctype, botName, callback)
     end
 end
 
-local function InvokeCallback(ctype, name, arg1, arg2, arg3, arg4)
+local function InvokeCallback(ctype, bot, arg1, arg2, arg3, arg4)
     if not ctype then return end
-    if not name then return end
+    if not bot then return end
 
+    local name = bot.name
     local array = GetCallbackArray(ctype, name)
     local count = _getn(array)
     for i=1, count do
         local callback = array[i]
         if callback then
-            callback(arg1, arg2, arg3, arg4)
+            callback(bot, arg1, arg2, arg3, arg4)
         end
     end
 
@@ -370,7 +393,7 @@ local function InvokeCallback(ctype, name, arg1, arg2, arg3, arg4)
     for i=1, count do
         local callback = array[i]
         if callback then
-            callback(arg1, arg2, arg3, arg4)
+            callback(bot, arg1, arg2, arg3, arg4)
         end
     end
 
@@ -388,7 +411,6 @@ end
 queryTemplates[QUERY_TYPE.WHO] = 
 {
     qtype = QUERY_TYPE.WHO,
-    callbackType = CALLBACK_TYPE.WHO,
     onStart          = function(query)
     end,
     onProgress       = function(query, payload)
@@ -408,6 +430,7 @@ queryTemplates[QUERY_TYPE.WHO] =
         local expLeft = _parser:nextFloat()
         local zone = _parser:nextString()
         if not _parser.broken then 
+            print("Processing who")
             -- this code is very verbose, but it is the most optimized way, think of it as inlining
             local bot = query.bot
             local botname = bot.name
@@ -422,6 +445,7 @@ queryTemplates[QUERY_TYPE.WHO] =
             if bot.level ~= level then
                 bot.level = level
                 changed_level = true
+                print(changed_level)
             end
 
             if bot.talents.dualSpecUnlocked ~= secondSpecUnlocked then
@@ -496,10 +520,10 @@ queryTemplates[QUERY_TYPE.WHO] =
                 changed_zone = true
             end
 
-            if changed_level then InvokeCallback(CALLBACK_TYPE.LEVEL_CHANGED, botname) end
-            if changed_exp then InvokeCallback(CALLBACK_TYPE.EXPERIENCE_CHANGED, botname) end
-            if changed_zone then InvokeCallback(CALLBACK_TYPE.ZONE_CHANGED, botname) end
-            if changed_spec_data then InvokeCallback(CALLBACK_TYPE.SPEC_DATA_CHANGED, botname) end
+            if changed_level then InvokeCallback(CALLBACK_TYPE.LEVEL_CHANGED, bot) end
+            if changed_exp then InvokeCallback(CALLBACK_TYPE.EXPERIENCE_CHANGED, bot) end
+            if changed_zone then InvokeCallback(CALLBACK_TYPE.ZONE_CHANGED, bot) end
+            if changed_spec_data then InvokeCallback(CALLBACK_TYPE.SPEC_DATA_CHANGED, bot) end
         end
     end,
     onFinalize       = function(query) end,
@@ -535,12 +559,48 @@ queryTemplates[QUERY_TYPE.GEAR] =
                     item.count = 0
                 end
             end
-        else
-            query.callbackType = nil -- if nothing changed, no data received, dont callback 
+            InvokeCallback(CALLBACK_TYPE.EQUIPMENT_CHANGED, query.bot)
         end
     end,
 }
 
+queryTemplates[QUERY_TYPE.INVENTORY] = 
+{
+    qtype = QUERY_TYPE.INVENTORY,
+    onStart          = function(query)
+
+    end,
+    onProgress       = function(query, payload)
+        _parser:start(payload)
+        local bot = query.bot
+        local subtype = _parser:nextChar()
+        if subtype == 'b' then
+            local bagNum = _parser:nextInt()
+            local bagSize = _parser:nextInt()
+            local bagLink = _parser:stringToEnd()
+
+            local bag = bot.bags[bagNum]
+            bag:InitBag(bagSize, bagLink)
+            query.ctx1[bagNum] = true -- track which bags are added by the query
+        elseif subtype == 'i' then
+            local bagNum = _parser:nextInt()
+            local bagSlot = _parser:nextInt()
+            local itemCount = _parser:nextInt()
+            local itemLink = _parser:stringToEnd()
+
+            local bag = bot.bags[bagNum]
+            bag:SetItem(bagSlot, itemCount, itemLink)
+        end
+    end,
+    onFinalize       = function(query)
+        for i=1, 4 do
+            local receivedBag = query.ctx1[i]
+            if not receivedBag then
+                query.bot.bags[i]:InitBag(0, nil)
+            end
+        end
+    end,
+}
 
 -----------------------------------------------------------------------------
 ----- QUERIES END
@@ -620,7 +680,7 @@ function PlayerbotsBroker:StartQuery(qtype, bot)
     local status = PlayerbotsBroker:GetBotStatus(bot.name)
     if not status.online then return end -- abort query because the bot is either not available or offline
 
-    --_debug:LevelDebug(3, "PlayerbotsBroker:StartQuery", "QUERY_TYPE", QUERY_TYPE, "name", bot.name)
+    _debug:LevelDebug(1, "PlayerbotsBroker:StartQuery", "QUERY_TYPE", qtype, "name", bot.name)
     local array = PlayerbotsBroker:GetQueriesArray(bot.name)
     local query = array[qtype]
     if query then
@@ -714,9 +774,6 @@ function PlayerbotsBroker:FinalizeQuery(query)
     _queryPool[_queryPoolCount] = query
 
     --_debug:LevelDebug(3, "PlayerbotsBroker:FinalizeQuery", query.bot.name , queries[query.qtype],  _activeQueriesById[query.id])
-    if not query.hasError and query.callbackType then
-        InvokeCallback(query.callbackType, query.bot.name, query.bot, query.botStatus)
-    end
 end
 
 function PlayerbotsBroker:SendWhisper(msg, name)
@@ -728,7 +785,7 @@ SYS_MSG_HANDLERS[SYS_MSG_TYPE.HANDSHAKE] = function(id,payload, bot, status)
     if not status.online then
         status.online = true
         status.party = UnitInParty(bot.name) ~= nil
-        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot.name, bot, status)
+        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot, status)
     end
     PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.HANDSHAKE)
     PlayerbotsBroker:StartQuery(QUERY_TYPE.WHO, bot)
@@ -738,14 +795,14 @@ SYS_MSG_HANDLERS[SYS_MSG_TYPE.PING] = function(id,payload, bot, status)
     if not status.online then
         status.online = true
         status.party = UnitInParty(bot.name) ~= nil
-        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot.name , bot, status)
+        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot, status)
     end
 end
 
 SYS_MSG_HANDLERS[SYS_MSG_TYPE.LOGOUT] = function(id,payload, bot, status)
     if status.online then
         status.online = false
-        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot.name , bot, status)
+        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot, status)
     end
 end
 
@@ -783,7 +840,7 @@ REP_MSG_HANDLERS[REPORT_TYPE.ITEM_EQUIPPED] = function(id,payload,bot,status)
     end
 
     if changed then
-        InvokeCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, bot.name, bot, slotNum)
+        InvokeCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, bot, slotNum)
     end
 end
 REP_MSG_HANDLERS[REPORT_TYPE.CURRENCY] = function(id,payload,bot,status) end
@@ -827,7 +884,9 @@ function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
                             query.onProgress(query, payload)
                         elseif subtype == QUERY_OPCODE.FINAL then
                             local payload = _strsub(message, 9)
-                            query.onProgress(query, payload)
+                            if payload and _strlen(payload) > 0 then
+                                query.onProgress(query, payload)
+                            end
                             PlayerbotsBroker:FinalizeQuery(query)
                         elseif subtype >= UTF8_NUM_FIRST and subtype <= UTF8_NUM_LAST then
                             query.hasError = true
@@ -872,13 +931,24 @@ function PlayerbotsBroker:GenerateQueryMsg(query, payload)
     PlayerbotsBroker:GenerateMessage(query.bot.name, MSG_HEADER.QUERY, query.qtype, query.id, payload)
 end
 
+function PlayerbotsBroker:DoHandshakeAfterRegistration(name)
+    local bot = PlayerbotsPanel:GetBot(name)
+    if bot then
+        PlayerbotsBroker:GenerateMessage(name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.HANDSHAKE)
+        PlayerbotsBroker:GenerateMessage(name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.PING)
+        _updateHandler:DelayCall(1, function ()
+            PlayerbotsBroker:StartQuery(QUERY_TYPE.WHO, bot)
+        end)
+    end
+end
+
 function PlayerbotsBroker:PARTY_MEMBERS_CHANGED()
     for name, bot in pairs(_bots) do
         local status = PlayerbotsBroker:GetBotStatus(name)
         local inparty =  UnitInParty(name) ~= nil
         if inparty ~= status.party then
             status.party = inparty
-            InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot.name , bot, status)
+            InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot, status)
         end
     end
 end

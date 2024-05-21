@@ -104,6 +104,7 @@ _data.textures.slotIDbg = {
 
 _data.textures.updateBotsUp = "Interface\\GLUES\\CHARACTERCREATE\\UI-RotationRight-Big-Up.blp"
 _data.textures.updateBotsDown = "Interface\\GLUES\\CHARACTERCREATE\\UI-RotationRight-Big-Down.blp"
+_data.textures.updateBotsHi = _data.ROOT_PATH .. "textures\\UI-RotationRight-Big-Hi.tga"
 
 _data.textures.inventoryTopbar = _data.ROOT_PATH .. "textures\\inventory_topbar.tga"
 
