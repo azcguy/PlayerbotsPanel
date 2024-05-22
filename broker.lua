@@ -157,13 +157,14 @@ _parser.nextString = function(self)
     for i = self.cursor, self.len+1 do
         local c = strbyte(p, i)
         if c == nil or c == self.separator then
-            if self.bufferCount > 0 then
+            local bufferCount = self.bufferCount
+            if bufferCount > 0 then
                 self.cursor = i + 1
                 if buffer[1] == NULL_LINK then
                     self.bufferCount = 0
                     return nil end
                 
-                local result = _tconcat(buffer, nil, 1, self.bufferCount)
+                local result = _tconcat(buffer, nil, 1, bufferCount)
                 self.bufferCount = 0
                 return result
             else
@@ -171,8 +172,9 @@ _parser.nextString = function(self)
             end
         else
             self.cursor = i
-            self.bufferCount = self.bufferCount + 1
-            buffer[self.bufferCount] = strchar(c)
+            local bufferCount = self.bufferCount + 1
+            self.bufferCount = bufferCount
+            buffer[bufferCount] = strchar(c)
         end
     end
 end
@@ -196,7 +198,8 @@ _parser.nextInt = function(self)
     for i = self.cursor, self.len + 1 do
         local c = strbyte(p, i)
         if c == nil or c == self.separator then
-            if self.bufferCount > 0 then
+            local bufferCount = self.bufferCount
+            if bufferCount > 0 then
                 self.cursor = i + 1
                 local result = 0
                 local sign = 1
@@ -205,8 +208,8 @@ _parser.nextInt = function(self)
                     sign = -1
                     start = 2
                 end
-                for t= start, self.bufferCount do
-                    result = result + ((buffer[t]-48)*pow(10, self.bufferCount - t))
+                for t= start, bufferCount do
+                    result = result + ((buffer[t]-48)*pow(10, bufferCount - t))
                 end
                 result = result * sign
                 self.bufferCount = 0
@@ -214,8 +217,9 @@ _parser.nextInt = function(self)
             end
         else
             self.cursor = i
-            self.bufferCount = self.bufferCount + 1
-            buffer[self.bufferCount] = c
+            local bufferCount = self.bufferCount + 1
+            self.bufferCount = bufferCount
+            buffer[bufferCount] = c
         end
     end
 end
@@ -230,7 +234,8 @@ _parser.nextFloat = function(self)
     for i = self.cursor, self.len + 1 do
         local c = tobyte(p, i)
         if c == nil or c == self.separator then
-            if self.bufferCount > 0 then
+            local bufferCount = self.bufferCount
+            if bufferCount > 0 then
                 self.cursor = i + 1
                 local result = 0
                 local dotPos = -1
@@ -241,7 +246,7 @@ _parser.nextFloat = function(self)
                     start = 2
                 end
                 -- find dot
-                for t=1, self.bufferCount do
+                for t=1, bufferCount do
                     if buffer[t] == self.dotbyte then
                         dotPos = t
                         break
@@ -249,8 +254,8 @@ _parser.nextFloat = function(self)
                 end
                 -- if no dot, use simplified int algo
                 if dotPos == -1 then
-                    for t=start, self.bufferCount do
-                        result = result + ((buffer[t]-48)*pow(10, self.bufferCount - t))
+                    for t=start, bufferCount do
+                        result = result + ((buffer[t]-48)*pow(10, bufferCount - t))
                     end
                     result = result * sign
                     self.bufferCount = 0
@@ -259,7 +264,7 @@ _parser.nextFloat = function(self)
                     for t=start, dotPos-1 do -- int
                         result = result + ((buffer[t]-48)*pow(10, dotPos - t - 1))
                     end
-                    for t=dotPos+1, self.bufferCount do -- decimal
+                    for t=dotPos+1, bufferCount do -- decimal
                         result = result + ((buffer[t]-48)* pow(10, (t-dotPos) * -1))
                     end
                     result = result * sign
@@ -269,8 +274,9 @@ _parser.nextFloat = function(self)
             end
         else
             self.cursor = i
-            self.bufferCount = self.bufferCount + 1
-            buffer[self.bufferCount] = c
+            local bufferCount = self.bufferCount + 1
+            self.bufferCount = bufferCount
+            buffer[bufferCount] = c
         end
     end
 end
@@ -298,8 +304,9 @@ _parser.nextBool = function (self)
             end
         else
             self.cursor = i
-            self.bufferCount = self.bufferCount + 1
-            buffer[self.bufferCount] = c
+            local bufferCount = self.bufferCount + 1
+            self.bufferCount = bufferCount
+            buffer[bufferCount] = c
         end
     end
 end
