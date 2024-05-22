@@ -43,6 +43,8 @@ CALLBACK_TYPE.EQUIP_SLOT_CHANGED = {}
 -- UPDATED_EQUIPMENT (bot)                      // full equipment update completed
 CALLBACK_TYPE.EQUIPMENT_CHANGED = {}
 
+CALLBACK_TYPE.INVENTORY_CHANGED = {} -- // full bags update 
+
 
 -- ============================================================================================
 -- ============== Locals optimization, use in hotpaths
@@ -568,7 +570,10 @@ queryTemplates[QUERY_TYPE.INVENTORY] =
 {
     qtype = QUERY_TYPE.INVENTORY,
     onStart          = function(query)
-
+        for i=0, 4 do
+            local size = _eval(i == 0, 16, 0)
+            PlayerbotsPanel.InitBag(query.bot.bags[i], size, nil)
+        end
     end,
     onProgress       = function(query, payload)
         _parser:start(payload)
@@ -593,12 +598,8 @@ queryTemplates[QUERY_TYPE.INVENTORY] =
         end
     end,
     onFinalize       = function(query)
-        for i=1, 4 do
-            local receivedBag = query.ctx1[i]
-            if not receivedBag then
-                PlayerbotsPanel.InitBag(query.bot.bags[i], 0, nil)
-            end
-        end
+
+        InvokeCallback(CALLBACK_TYPE.INVENTORY_CHANGED, query.bot)
     end,
 }
 

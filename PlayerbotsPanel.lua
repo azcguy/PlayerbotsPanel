@@ -15,8 +15,11 @@ local _dbchar = {}
 local _dbaccount = {}
 local CALLBACK_TYPE = PlayerbotsBrokerCallbackType
 local QUERY_TYPE = PlayerbotsBrokerQueryType
-local _selectedBot = nil
 local _eval = _util.CompareAndReturn
+local _pairs = pairs
+PlayerbotsPanel.selectedBot = nil
+PlayerbotsPanel.events = {}
+PlayerbotsPanel.events.onBotSelectionChanged = _util.CreateEvent()
 
 -- references to tab objects that will be initialized, declared in corresponding files
 PlayerbotsPanel.tabInitList = 
@@ -221,10 +224,6 @@ function PlayerbotsPanel:GetBot(name)
     return nil
 end
 
-function  PlayerbotsPanel:GetSelectedBot()
-    return _selectedBot
-end
-
 function PlayerbotsPanel:ExtractTargetData()
     local _name = UnitName("target")
     local race, racetoken = UnitRace("target")
@@ -263,37 +262,24 @@ function PlayerbotsPanel:CreateBotData(name)
 end
 
 
-local _pool_bagslot = {}
-local _pool_bagslot_count = 0
-local function getBagSlot()
-    if _pool_bagslot_count == 0 then
+local _pool_bagslotdata = _util.CreatePool(
+    function ()
         return { link = nil, count = 0 }
-    else
-        local slot = _pool_bagslot[_pool_bagslot_count]
-        _pool_bagslot[_pool_bagslot_count] = nil
-        _pool_bagslot_count = _pool_bagslot_count - 1
-        return slot
-    end
-end
-
-local function releaseBagSlot(slot)
-    if not slot then return end
-    _pool_bagslot_count = _pool_bagslot_count + 1
-    _pool_bagslot[_pool_bagslot_count] = slot
-    slot.link = nil
-    slot.count = 0
-end
+    end,
+    function (elem)
+        elem.link = nil
+        elem.count = 0
+    end )
 
 function  PlayerbotsPanel.InitBag(bag, size, link)
     bag.link = link
     bag.size = size
     local contents = bag.contents
     local currentSize = getn(contents)
-    for i = 1, currentSize do
-        releaseBagSlot(contents[i])
-        contents[i] = nil
+    for k,v in _pairs(contents) do
+        _pool_bagslotdata:Release(v)
     end
-    wipe(contents)
+    wipe(bag.contents)
     --if size > 0 then
     --    for i=1, size do
     --        contents[i] = getBagSlot()
@@ -318,11 +304,11 @@ function PlayerbotsPanel.SetBagItem(bag, slotNum, count, link)
             bag.freeSlots = bag.freeSlots + 1
         end
         contents[slotNum] = nil
-        releaseBagSlot(slot)
+        _pool_bagslotdata:Release(slot)
     else
         local added = false
         if not slot then 
-            slot = getBagSlot()
+            slot = _pool_bagslotdata:Get()
             contents[slotNum] = slot
             added = true
         else
@@ -444,8 +430,8 @@ end
 
 function PlayerbotsPanel:RefreshSelection()
     _updateHandler:DelayCall(0.25, function()
-        if _selectedBot ~= nil then
-            PlayerbotsPanel:SetSelectedBot(_selectedBot.name)
+        if self.selectedBot ~= nil then
+            PlayerbotsPanel:SetSelectedBot(self.selectedBot.name)
         end
     end)
 end
@@ -453,15 +439,17 @@ end
 function PlayerbotsPanel:ClearSelection()
     PlayerbotsPanel:UpdateBotSelector()
     PlayerbotsPanel:UpdateGearView(nil)
+    PlayerbotsPanel.events.onBotSelectionChanged:Invoke(PlayerbotsPanel.selectedBot)
 end
 
 function PlayerbotsPanel:SetSelectedBot(botname)
     local bot = PlayerbotsPanel:GetBot(botname)
     if bot == nil then return end
-    _selectedBot = bot
+    self.selectedBot = bot
     PlayerbotsPanel:UpdateBotSelector()
     PlayerbotsPanel:UpdateGearView(botname)
     PlaySound(_data.sounds.onBotSelect)
+    PlayerbotsPanel.events.onBotSelectionChanged:Invoke(bot)
 end
 
 function PlayerbotsPanel:OnClick()
@@ -475,100 +463,75 @@ end
 local function UpdateGearSlot(bot, slotNum)
     local slot = PlayerbotsGearView.slots[slotNum + 1]
     local item = nil
-
     if bot then
         item = bot.items[slotNum]
-    end
-
-    if bot == nil or item == nil or item.link == nil then -- if empty
-        slot.item = nil
-        slot.itemTex:Hide()
-        slot.qTex:Hide()
-    else 
-        slot.bot = bot
-        if slot.item == nil then
-            slot.item = {}
-        end
-
-        local sitem = slot.item
-        sitem.name, sitem.link, sitem.quality, sitem.iLevel, sitem.reqLevel, sitem.class, sitem.subclass, sitem.maxStack, sitem.equipSlot, sitem.texture, sitem.vendorPrice = GetItemInfo(item.link)
-        slot.itemTex:Show()
-        slot.itemTex:SetTexture(sitem.texture)
-        local r, g, b, _ = GetItemQualityColor(sitem.quality)
-        slot.qColor = { r = r, g = g, b = b }
-        slot.qTex:Show()
-        slot.qTex:SetVertexColor(r,g,b)
+        slot:SetItem(item)
     end
 end
 
-local _pool_uislot = {}
-local _pool_uislot_count = 0
-local function getUISlot()
-    if _pool_uislot_count == 0 then
-        return { link = nil, count = 0 }
-    else
-        local slot = _pool_uislot[_pool_uislot_count]
-        _pool_uislot[_pool_uislot_count] = nil
-        _pool_uislot_count = _pool_uislot_count - 1
-        return slot
-    end
-end
-
-local function releaseUISlot(slot)
-    if not slot then return end
-    _pool_uislot_count = _pool_uislot_count + 1
-    _pool_uislot[_pool_uislot_count] = slot
-    slot.link = nil
-    slot.count = 0
-end
-
-function PlayerbotsPanel.GetOrCreateSlot(frame, slotSize, id, bgTex, onClick, onEnter, onLeave)
+function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
     local slot =  CreateFrame("Button", nil, frame)
     slot.id = id
+    slot.onClick = _util.CreateEvent()
+    slot.onEnter = _util.CreateEvent()
+    slot.onLeave = _util.CreateEvent()
     slot:SetSize(slotSize, slotSize)
     slot:SetScript("OnEnter", function(self, motion)
-        slot.hitex:Show()
-        if slot.item ~= nil then
-            _tooltips.tooltip:SetOwner(slot, "ANCHOR_RIGHT")
-            _tooltips.tooltip:SetHyperlink(slot.item.link)
-            _util.SetVertexColor(slot.hitex, slot.qColor)
-            if onEnter then
-                onEnter(self)
-            end
+        self.hitex:Show()
+        if self.item ~= nil then
+            _tooltips.tooltip:SetOwner(self, "ANCHOR_RIGHT")
+            _tooltips.tooltip:SetHyperlink(self.item.link)
+            _util.SetVertexColor(self.hitex, self.qColor)
+        else
+            _util.SetVertexColor(self.hitex, _data.colors.defaultSlotHighlight)
+        end
+        if self.onEnter then
+            self.onEnter:Invoke(self, motion)
         end
     end)
     slot:SetScript("OnLeave", function(self, motion)
         _tooltips.tooltip:Hide()
-        _util.SetVertexColor(slot.hitex, _data.colors.defaultSlotHighlight)
-        slot.hitex:Hide()
-        if onLeave then
-            onLeave(self)
+        _util.SetVertexColor(self.hitex, _data.colors.defaultSlotHighlight)
+        self.hitex:Hide()
+        if self.onLeave then
+            self.onLeave:Invoke(self, motion)
         end
     end)
     slot:SetScript("OnClick", function(self, button, down)
-      if slot.item and slot.bot then
-        onClick(self, button, down)
-      end
+        self.onClick:Invoke(self, button, down)
     end)
 
     slot.SetItem = function (self, item)
         self.item = item
-        if not item then
-            slot.item = nil
-            slot.itemTex:Hide()
-            slot.qTex:Hide()
+        if not item or not item.link then
+            self.item = nil
+            self.itemTex:Hide()
+            self.qTex:Hide()
         else
-            local sitem = slot.item
-            sitem.name, sitem.link, sitem.quality, sitem.iLevel, sitem.reqLevel, sitem.class, sitem.subclass, sitem.maxStack, sitem.equipSlot, sitem.texture, sitem.vendorPrice = GetItemInfo(item.link)
-            slot.itemTex:Show()
-            slot.itemTex:SetTexture(sitem.texture)
-            slot.qColor = _data.colors.quality[sitem.quality]
-            _util.SetVertexColor(slot.qTex, slot.qColor)
-            slot.qTex:Show()
+            self.item = item
+            local cache = _util.GetItemCache(item.link)
+            local quality = cache.quality
+            self.itemTex:Show()
+            self.itemTex:SetTexture(cache.texture)
+            self.qColor = _data.colors.quality[quality]
+            _util.SetVertexColor(self.qTex, self.qColor)
+            if quality > 1 then
+                self.qTex:Show()
+            else
+                self.qTex:Hide()
+            end
         end
     end
 
-    slot.bgTex = slot:CreateTexture(nil, "BACKGROUND")
+    slot.LockHighlight = function (self, lock)
+        if lock then
+            self.hitex:Show()
+        else
+            self.hitex:Hide()
+        end
+    end
+
+    slot.bgTex = slot:CreateTexture(nil, "BACKGROUND", -7)
     bgTex = _eval(bgTex, bgTex, _data.textures.emptySlot)
     slot.bgTex:SetTexture(bgTex)
     slot.bgTex:SetPoint("TOPLEFT", 0, 0)
@@ -576,25 +539,25 @@ function PlayerbotsPanel.GetOrCreateSlot(frame, slotSize, id, bgTex, onClick, on
     slot.bgTex:SetHeight(slotSize)
     slot.bgTex:SetVertexColor(0.75,0.75,0.75)
   
-    slot.itemTex = slot:CreateTexture(nil, "BORDER")
+    slot.itemTex = slot:CreateTexture(nil, "BORDER", -6)
     slot.itemTex:SetTexture(_data.textures.emptySlot)
     slot.itemTex:SetPoint("TOPLEFT", 0, 0)
     slot.itemTex:SetWidth(slotSize)
     slot.itemTex:SetHeight(slotSize)
     slot.itemTex:Hide()
   
-    slot.qTex = slot:CreateTexture(nil, "OVERLAY")
+    slot.qTex = slot:CreateTexture(nil, "OVERLAY", -5)
     slot.qTex:SetTexture(_data.textures.slotHi)
     slot.qTex:SetTexCoord(0.216, 0.768, 0.232, 0.784)
     slot.qTex:SetBlendMode("ADD")
+    slot.qTex:SetAlpha(1)
     slot.qTex:SetPoint("TOPLEFT", 0, 0)
     slot.qTex:SetWidth(slotSize)
     slot.qTex:SetHeight(slotSize)
-    slot.qTex:SetAlpha(0.75)
     slot.qTex:SetVertexColor(1,1,1)
     slot.qTex:Hide()
   
-    slot.hitex = slot:CreateTexture(nil, "OVERLAY")
+    slot.hitex = slot:CreateTexture(nil, "OVERLAY", -4)
     slot.hitex:SetTexture(_data.textures.slotHi)
     slot.hitex:SetTexCoord(0.216, 0.768, 0.232, 0.784)
     slot.hitex:SetBlendMode("ADD")
@@ -676,23 +639,15 @@ function PlayerbotsPanel:SetupGearSlot(id, x, y)
     local slots = PlayerbotsGearView.slots
     if slots[id] == nil then
         local bgTex = _data.textures.slotIDbg[id]
-        local slot = PlayerbotsPanel.GetOrCreateSlot(PlayerbotsGearView.frame, 38, id, bgTex, function(self, button, down)
-            if self.item and self.bot then
-                if button == "LeftButton" then
-                    SendChatMessage("ue " .. self.item.link, "WHISPER", nil, self.bot.name)
-                    PlayerbotsPanel:RefreshSelection()
-                elseif button == "RightButton" then
-                end
-            end
-        end)
+        local slot = PlayerbotsPanel.CreateSlot(PlayerbotsGearView.frame, 38, id, bgTex)
         slots[id] = slot 
         slot:SetPoint("TOPLEFT", x, y)
     end
 end
 
 function PlayerbotsPanel:DropItemSelected()
-    if _selectedBot then
-        DropItemOnUnit(_selectedBot.name)
+    if self.selectedBot then
+        DropItemOnUnit(self.selectedBot.name)
         _updateHandler:DelayCall(0.25, function()
             AcceptTrade()
         end)
@@ -781,7 +736,7 @@ function PlayerbotsPanel:SetupGearFrame()
     PlayerbotsGearView.updateGearButton:SetHighlightTexture(_data.textures.updateBotsHi)
     PlayerbotsGearView.updateGearButton:SetScript("OnClick", function(self, button, down)
         print("click")
-        _broker:StartQuery(QUERY_TYPE.GEAR, _selectedBot)
+        _broker:StartQuery(QUERY_TYPE.GEAR, PlayerbotsPanel.selectedBot)
     end)
     PlayerbotsGearView.updateGearButton:EnableMouse(true)
     _tooltips.AddInfoTooltip(PlayerbotsGearView.updateGearButton, _data.strings.tooltips.gearViewUpdateGear)
@@ -917,7 +872,7 @@ function PlayerbotsPanel:SetupGearFrame()
     slotPosY = slotPosY - slotOffsetY
 
     PlayerbotsGearView.onUpdatedEquipSlot = function(bot, slotNum)
-        if bot == _selectedBot then 
+        if bot == PlayerbotsPanel.selectedBot then 
             UpdateGearSlot(bot, slotNum)
         end
     end
@@ -925,7 +880,7 @@ function PlayerbotsPanel:SetupGearFrame()
     _broker:RegisterGlobalCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, PlayerbotsGearView.onUpdatedEquipSlot)
 
     PlayerbotsGearView.onUpdateAllSlots = function (bot)
-        if _selectedBot and bot == _selectedBot then
+        if PlayerbotsPanel.selectedBot and bot == PlayerbotsPanel.selectedBot then
             PlayerbotsPanel:UpdateGearView(bot.name)
         end
     end
@@ -1000,7 +955,7 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
     rootFrame.statusUpdateHandler = function(bot, status)
         local name = bot.name
         PlayerbotsPanel:UpdateBotSelectorButton(name)
-        if bot == _selectedBot then
+        if bot == PlayerbotsPanel.selectedBot then
             PlayerbotsPanel:UpdateGearView(name)
         end
     end
@@ -1097,7 +1052,7 @@ function PlayerbotsPanel:UpdateBotSelectorButton(name)
     local width = rootFrame.ppwidth
     local height = rootFrame.ppheight
     local isTarget = UnitName("target") == bot.name
-    local selected = _selectedBot == bot
+    local selected = self.selectedBot == bot
 
     local status = _broker:GetBotStatus(bot.name)
     local online = status.online

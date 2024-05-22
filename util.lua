@@ -107,7 +107,71 @@ function PlayerbotsPanelUtil.SetBackdrop(frame, tex, texBorder)
 end
 
 
+function PlayerbotsPanelUtil.CreatePool(onNew, onClear)
+    local pool = {}
+    pool.elems = {}
+    pool.count = 0
+    pool.onNew = onNew
+    pool.onClear = onClear
+    pool.Get = function (self)
+        local elems = self.elems
+        local count = self.count
+        if self.count == 0 then
+            return self.onNew()
+        else
+            local elem = elems[count]
+            elems[count] = nil
+            self.count = count - 1
+            return elem
+        end
+    end
 
+    pool.Release = function  (self, elem)
+        if not elem then return end
+        local count = self.count
+        count = count + 1
+        self.elems[count] = elem
+        self.count = count
+        if onClear then
+            self.onClear(elem)
+        end
+    end
+
+    return pool
+end
+
+local _itemCache = {}
+-- Using big strings as keys is fine in lua, since all strings are interned by default and the table uses reference as key
+function  PlayerbotsPanelUtil.GetItemCache(link)
+    local cache = _itemCache[link]
+    if not cache then
+        cache = {}
+        cache.name, _, cache.quality, cache.iLevel, cache.reqLevel, cache.class, cache.subclass, cache.maxStack, cache.equipSlot, cache.texture, cache.vendorPrice = GetItemInfo(link)
+    end
+    return cache
+end
+
+function PlayerbotsPanelUtil.CreateEvent()
+    local event = {}
+    event.callbacks = {}
+    event.Invoke = function (self, arg1, arg2, arg3, arg4)
+        for k,cb in pairs(self.callbacks) do
+            if cb then
+                cb(arg1, arg2, arg3, arg4)
+            end
+        end
+    end
+
+    event.Add = function (self, callback)
+        self.callbacks[callback] = callback
+    end
+
+    event.Remove = function (self, callback)
+        self.callbacks[callback] = nil        
+    end
+
+    return event
+end
 
 
 

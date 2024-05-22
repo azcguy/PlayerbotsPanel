@@ -48,7 +48,7 @@ _data.colors.defaultSlotHighlight = {
 _data.colors.quality = {}
 for i=0, 7 do
     local r,g,b = GetItemQualityColor(i)
-    _data.colors.quality[i] = _data.CreateColorF(r,g,b)
+    _data.colors.quality[i] = _data.CreateColor(r,g,b)
 end
 
 _data.colors.white = _data.CreateColor(255,255,255,255,"#FFFFFF")
