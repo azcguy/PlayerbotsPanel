@@ -74,6 +74,7 @@ local MSG_SEPARATOR = ":"
 local MSG_SEPARATOR_BYTE = _strbyte(":")
 local FLOAT_DOT_BYTE = _strbyte(".")
 local BYTE_ZERO = _strbyte("0")
+local BYTE_MINUS = _strbyte("-")
 local MSG_HEADER = {}
 local NULL_LINK = "~"
 local UTF8_NUM_FIRST = _strbyte("1") -- 49
@@ -198,9 +199,16 @@ _parser.nextInt = function(self)
             if self.bufferCount > 0 then
                 self.cursor = i + 1
                 local result = 0
-                for t=1, self.bufferCount do
+                local sign = 1
+                local start = 1
+                if buffer[1] == BYTE_MINUS then
+                    sign = -1
+                    start = 2
+                end
+                for t= start, self.bufferCount do
                     result = result + ((buffer[t]-48)*pow(10, self.bufferCount - t))
                 end
+                result = result * sign
                 self.bufferCount = 0
                 return floor(result)
             end
@@ -226,6 +234,12 @@ _parser.nextFloat = function(self)
                 self.cursor = i + 1
                 local result = 0
                 local dotPos = -1
+                local sign = 1
+                local start = 1
+                if buffer[1] == BYTE_MINUS then
+                    sign = -1
+                    start = 2
+                end
                 -- find dot
                 for t=1, self.bufferCount do
                     if buffer[t] == self.dotbyte then
@@ -235,18 +249,20 @@ _parser.nextFloat = function(self)
                 end
                 -- if no dot, use simplified int algo
                 if dotPos == -1 then
-                    for t=1, self.bufferCount do
+                    for t=start, self.bufferCount do
                         result = result + ((buffer[t]-48)*pow(10, self.bufferCount - t))
                     end
+                    result = result * sign
                     self.bufferCount = 0
                     return result -- still returns a float because of pow
                 else
-                    for t=1, dotPos-1 do -- int
+                    for t=start, dotPos-1 do -- int
                         result = result + ((buffer[t]-48)*pow(10, dotPos - t - 1))
                     end
                     for t=dotPos+1, self.bufferCount do -- decimal
                         result = result + ((buffer[t]-48)* pow(10, (t-dotPos) * -1))
                     end
+                    result = result * sign
                     self.bufferCount = 0
                     return result
                 end
