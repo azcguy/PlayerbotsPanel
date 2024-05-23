@@ -257,7 +257,7 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
                 bagslot:SetItem(bag)
             end
 
-            for i=1, self.itemslotsCount do -- release used slots
+            for i=0, self.itemslotsCount do -- release used slots
                 local slot = self.itemslots[i]
                 _pool_itemSlots:Release(slot)
                 self.itemslots[i] = nil
