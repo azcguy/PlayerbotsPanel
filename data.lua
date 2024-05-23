@@ -108,6 +108,9 @@ _data.textures.updateBotsHi = _data.ROOT_PATH .. "textures\\UI-RotationRight-Big
 
 _data.textures.inventoryTopbar = _data.ROOT_PATH .. "textures\\inventory_topbar.tga"
 
+_data.textures.slotLoading = _data.ROOT_PATH .. "textures\\slot_loading.tga"
+
+
 
 _data.raceData =
 {

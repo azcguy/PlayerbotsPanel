@@ -16,6 +16,10 @@ function PlayerbotsPanelUtil.SetTextColor(text, c)
 end
 
 function PlayerbotsPanelUtil.SetVertexColor(tex, c)
+    if c == nil then
+        c = _data.colors.red
+        print("ERROR SETTING COLOR")
+    end
     tex:SetVertexColor(c.r, c.g, c.b)
 end
 
@@ -140,17 +144,6 @@ function PlayerbotsPanelUtil.CreatePool(onNew, onClear)
     return pool
 end
 
-local _itemCache = {}
--- Using big strings as keys is fine in lua, since all strings are interned by default and the table uses reference as key
-function  PlayerbotsPanelUtil.GetItemCache(link)
-    local cache = _itemCache[link]
-    if not cache then
-        cache = {}
-        cache.name, _, cache.quality, cache.iLevel, cache.reqLevel, cache.class, cache.subclass, cache.maxStack, cache.equipSlot, cache.texture, cache.vendorPrice = GetItemInfo(link)
-    end
-    return cache
-end
-
 function PlayerbotsPanelUtil.CreateEvent()
     local event = {}
     event.callbacks = {}
@@ -168,6 +161,10 @@ function PlayerbotsPanelUtil.CreateEvent()
 
     event.Remove = function (self, callback)
         self.callbacks[callback] = nil        
+    end
+
+    event.Clear = function (self)
+        wipe(event.callbacks)
     end
 
     return event

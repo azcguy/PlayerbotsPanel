@@ -455,7 +455,6 @@ queryTemplates[QUERY_TYPE.WHO] =
         local expLeft = _parser:nextFloat()
         local zone = _parser:nextString()
         if not _parser.broken then 
-            print("Processing who")
             -- this code is very verbose, but it is the most optimized way, think of it as inlining
             local bot = query.bot
             local botname = bot.name
@@ -470,7 +469,6 @@ queryTemplates[QUERY_TYPE.WHO] =
             if bot.level ~= level then
                 bot.level = level
                 changed_level = true
-                print(changed_level)
             end
 
             if bot.talents.dualSpecUnlocked ~= secondSpecUnlocked then
@@ -868,7 +866,27 @@ REP_MSG_HANDLERS[REPORT_TYPE.ITEM_EQUIPPED] = function(id,payload,bot,status)
     end
 end
 REP_MSG_HANDLERS[REPORT_TYPE.CURRENCY] = function(id,payload,bot,status) end
-REP_MSG_HANDLERS[REPORT_TYPE.INVENTORY] = function(id,payload,bot,status) end
+REP_MSG_HANDLERS[REPORT_TYPE.INVENTORY] = function(id,payload,bot,status) 
+    _parser:start(payload)
+    local subtype = _parser:nextChar()
+
+    if subtype == 'b' then
+        local bagSlot = _parser:nextInt()
+        local bagSize = _parser:nextInt()
+        local bagLink = _parser:stringToEnd()
+        local bag = bot.bags[bagSlot]
+        PlayerbotsPanel.InitBag(bag, bagSize, bagLink)
+    elseif subtype == 'i' then
+        local bagSlot = _parser:nextInt()
+        local itemSlot = _parser:nextInt()
+        local itemCount = _parser:nextInt()
+        local itemLink = _parser:stringToEnd()
+        local bag = bot.bags[bagSlot]
+        PlayerbotsPanel.SetBagItem(bag, itemSlot, itemCount, itemLink)
+    end
+
+    InvokeCallback(CALLBACK_TYPE.INVENTORY_CHANGED, bot)
+end
 REP_MSG_HANDLERS[REPORT_TYPE.TALENTS] = function(id,payload,bot,status) end
 REP_MSG_HANDLERS[REPORT_TYPE.SPELLS] = function(id,payload,bot,status) end
 REP_MSG_HANDLERS[REPORT_TYPE.QUEST] = function(id,payload,bot,status) end

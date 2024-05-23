@@ -27,6 +27,7 @@ data.lua
 util.lua
 tooltip.lua
 updateHandler.lua
+itemCache.lua
 broker.lua
 tabs\ppTabSettings.lua
 tabs\ppTabInventory.lua

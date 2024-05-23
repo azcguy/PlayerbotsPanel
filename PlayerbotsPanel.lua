@@ -12,6 +12,7 @@ local _updateHandler = PlayerbotsPanelUpdateHandler
 local _broker = PlayerbotsBroker
 local _tooltips = PlayerbotsPanelTooltips
 local _dbchar = {}
+local _itemCache = PlayerbotsPanelItemCache
 local _dbaccount = {}
 local CALLBACK_TYPE = PlayerbotsBrokerCallbackType
 local QUERY_TYPE = PlayerbotsBrokerQueryType
@@ -120,6 +121,7 @@ function PlayerbotsPanel:OnInitialize()
     _dbaccount = PlayerbotsPanel.db.account
     _updateHandler:Init()
     _broker:Init(_dbchar.bots)
+    _itemCache:Init()
 
     self:CreateWindow()
     self:RegisterChatCommand("/pp", self.commands)
@@ -142,13 +144,11 @@ function PlayerbotsPanel:OnEnable()
 
     PlayerbotsFrame:Show()
     PlayerbotsPanel:UpdateBotSelector()
-    print("onEnable")
     _broker:OnEnable()
 end
 
 function PlayerbotsPanel:OnDisable()
     self:SetDebugging(false)
-    print("onDisable")
     _broker:OnDisable()
 end
 
@@ -475,10 +475,12 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
     slot.onClick = _util.CreateEvent()
     slot.onEnter = _util.CreateEvent()
     slot.onLeave = _util.CreateEvent()
+    slot.updating = false
     slot:SetSize(slotSize, slotSize)
     slot:SetScript("OnEnter", function(self, motion)
         self.hitex:Show()
-        if self.item ~= nil then
+        if self.updating then return end
+        if self.item ~= nil and self.item.link ~= nil then
             _tooltips.tooltip:SetOwner(self, "ANCHOR_RIGHT")
             _tooltips.tooltip:SetHyperlink(self.item.link)
             _util.SetVertexColor(self.hitex, self.qColor)
@@ -490,6 +492,7 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
         end
     end)
     slot:SetScript("OnLeave", function(self, motion)
+        if self.updating then return end
         _tooltips.tooltip:Hide()
         _util.SetVertexColor(self.hitex, _data.colors.defaultSlotHighlight)
         self.hitex:Hide()
@@ -498,29 +501,36 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
         end
     end)
     slot:SetScript("OnClick", function(self, button, down)
+        if self.updating then return end
         self.onClick:Invoke(self, button, down)
     end)
 
     slot.SetItem = function (self, item)
         self.item = item
         if not item or not item.link then
+            local cache = self.cache
+            if cache and cache.updating then
+                slot.updating = false
+                cache.onQueryComplete:Remove(self.AwaitCacheComplete)
+            end
+            self.cache = nil
             self.item = nil
-            self.itemTex:Hide()
-            self.qTex:Hide()
         else
             self.item = item
-            local cache = _util.GetItemCache(item.link)
-            local quality = cache.quality
-            self.itemTex:Show()
-            self.itemTex:SetTexture(cache.texture)
-            self.qColor = _data.colors.quality[quality]
-            _util.SetVertexColor(self.qTex, self.qColor)
-            if quality > 1 then
-                self.qTex:Show()
-            else
-                self.qTex:Hide()
+            local cache = self.cache
+            if cache and cache.updating then
+                slot.updating = false
+                cache.onQueryComplete:Remove(self.AwaitCacheComplete)
+            end
+
+            local cache = _itemCache.GetItemCache(item.link)
+            self.cache = cache
+            if cache.updating then
+                cache.onQueryComplete:Add(self.AwaitCacheComplete)
+                slot.updating = true
             end
         end
+        self:Redraw()
     end
 
     slot.LockHighlight = function (self, lock)
@@ -528,6 +538,33 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
             self.hitex:Show()
         else
             self.hitex:Hide()
+        end
+    end
+
+    slot.AwaitCacheComplete = function (self)
+        slot.cache.onQueryComplete:Remove(slot.AwaitCacheComplete)
+        slot.updating = false
+        slot:Redraw()
+    end
+
+    slot.Redraw = function (self)
+        local item = slot.item
+        local cache = slot.cache
+        if not item or not item.link or not cache then
+            self.itemTex:Hide()
+            self.qTex:Hide()
+            return
+        else
+            local quality = _eval(cache.quality ~= nil, cache.quality, 0)
+            slot.itemTex:Show()
+            slot.itemTex:SetTexture(cache.texture)
+            slot.qColor = _data.colors.quality[quality]
+            _util.SetVertexColor(slot.qTex, slot.qColor)
+            if quality > 1 then
+                slot.qTex:Show()
+            else
+                slot.qTex:Hide()
+            end
         end
     end
 
@@ -735,7 +772,6 @@ function PlayerbotsPanel:SetupGearFrame()
     PlayerbotsGearView.updateGearButton:SetPushedTexture(_data.textures.updateBotsDown)
     PlayerbotsGearView.updateGearButton:SetHighlightTexture(_data.textures.updateBotsHi)
     PlayerbotsGearView.updateGearButton:SetScript("OnClick", function(self, button, down)
-        print("click")
         _broker:StartQuery(QUERY_TYPE.GEAR, PlayerbotsPanel.selectedBot)
     end)
     PlayerbotsGearView.updateGearButton:EnableMouse(true)
