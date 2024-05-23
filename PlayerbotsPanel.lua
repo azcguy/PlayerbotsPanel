@@ -547,6 +547,7 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
         if not item or not item.link or not cache then
             self.itemTex:Hide()
             self.qTex:Hide()
+            self.countText:Hide()
             return
         else
             local quality = _eval(cache.quality ~= nil, cache.quality, 0)
@@ -559,45 +560,62 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
             else
                 slot.qTex:Hide()
             end
+            if not item.count or item.count <= 1 then
+                slot.countText:Hide()
+            else
+                slot.countText:Show()
+                slot.countText:SetText(tostring(item.count))
+            end
         end
     end
 
     slot.bgTex = slot:CreateTexture(nil, "BACKGROUND", -7)
+    local slotBgTex = slot.bgTex
     bgTex = _eval(bgTex, bgTex, _data.textures.emptySlot)
-    slot.bgTex:SetTexture(bgTex)
-    slot.bgTex:SetPoint("TOPLEFT", 0, 0)
-    slot.bgTex:SetWidth(slotSize)
-    slot.bgTex:SetHeight(slotSize)
-    slot.bgTex:SetVertexColor(0.75,0.75,0.75)
+    slotBgTex:SetTexture(bgTex)
+    slotBgTex:SetPoint("TOPLEFT", 0, 0)
+    slotBgTex:SetWidth(slotSize)
+    slotBgTex:SetHeight(slotSize)
+    slotBgTex:SetVertexColor(0.75,0.75,0.75)
   
     slot.itemTex = slot:CreateTexture(nil, "BORDER", -6)
-    slot.itemTex:SetTexture(_data.textures.emptySlot)
-    slot.itemTex:SetPoint("TOPLEFT", 0, 0)
-    slot.itemTex:SetWidth(slotSize)
-    slot.itemTex:SetHeight(slotSize)
-    slot.itemTex:Hide()
+    local itemTex = slot.itemTex
+    itemTex:SetTexture(_data.textures.emptySlot)
+    itemTex:SetPoint("TOPLEFT", 0, 0)
+    itemTex:SetWidth(slotSize)
+    itemTex:SetHeight(slotSize)
+    itemTex:Hide()
   
     slot.qTex = slot:CreateTexture(nil, "OVERLAY", -5)
-    slot.qTex:SetTexture(_data.textures.slotHi)
-    slot.qTex:SetTexCoord(0.216, 0.768, 0.232, 0.784)
-    slot.qTex:SetBlendMode("ADD")
-    slot.qTex:SetAlpha(1)
-    slot.qTex:SetPoint("TOPLEFT", 0, 0)
-    slot.qTex:SetWidth(slotSize)
-    slot.qTex:SetHeight(slotSize)
-    slot.qTex:SetVertexColor(1,1,1)
-    slot.qTex:Hide()
+    local qTex = slot.qTex
+    qTex:SetTexture(_data.textures.slotHi)
+    qTex:SetTexCoord(0.216, 0.768, 0.232, 0.784)
+    qTex:SetBlendMode("ADD")
+    qTex:SetAlpha(1)
+    qTex:SetPoint("TOPLEFT", 0, 0)
+    qTex:SetWidth(slotSize)
+    qTex:SetHeight(slotSize)
+    qTex:SetVertexColor(1,1,1)
+    qTex:Hide()
   
     slot.hitex = slot:CreateTexture(nil, "OVERLAY", -4)
-    slot.hitex:SetTexture(_data.textures.slotHi)
-    slot.hitex:SetTexCoord(0.216, 0.768, 0.232, 0.784)
-    slot.hitex:SetBlendMode("ADD")
-    slot.hitex:SetPoint("TOPLEFT", 0, 0)
-    slot.hitex:SetWidth(slotSize)
-    slot.hitex:SetHeight(slotSize)
-    slot.hitex:SetAlpha(0.75)
-    _util.SetVertexColor(slot.hitex, _data.colors.defaultSlotHighlight)
-    slot.hitex:Hide()
+    local hitex = slot.hitex
+    hitex:SetTexture(_data.textures.slotHi)
+    hitex:SetTexCoord(0.216, 0.768, 0.232, 0.784)
+    hitex:SetBlendMode("ADD")
+    hitex:SetPoint("TOPLEFT", 0, 0)
+    hitex:SetWidth(slotSize)
+    hitex:SetHeight(slotSize)
+    hitex:SetAlpha(0.75)
+    _util.SetVertexColor(hitex, _data.colors.defaultSlotHighlight)
+    hitex:Hide()
+
+    slot.countText = slot:CreateFontString(nil, "ARTWORK", "NumberFontNormal")
+    local countText = slot.countText
+    countText:SetPoint("TOPLEFT", slot)
+    countText:SetPoint("BOTTOMRIGHT", slot, -3, 3)
+    countText:SetJustifyH("RIGHT")
+    countText:SetJustifyV("BOTTOM")
     return slot
 end
 
