@@ -33,6 +33,7 @@ local _pool_itemSlots = _util.CreatePool(
     function (elem)
         elem:SetParent(nil)
         elem:SetItem(nil)
+        elem:LockHighlight(false)
         elem:Hide()
     end
 )
@@ -227,7 +228,7 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
             if i == 1 then 
                 actualId = -1
             else
-                actualId = i + 4
+                actualId = i + 3
             end
 
             iframe.bagslots[actualId] = bagSlot
@@ -249,6 +250,41 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
         
         local bagtype = self.bagtype
         local bagslots = self.bagslots
+        local itemslots = self.itemslots
+
+        for i=0, self.itemslotsCount do -- release used slots
+            local slot = itemslots[i]
+            _pool_itemSlots:Release(slot)
+            itemslots[i] = nil
+        end
+        wipe(itemslots)
+        self.itemslotsCount = 0
+        local slotcount = 0
+        local function populateSlots(bagNum)
+            local bag = bot.bags[bagNum]
+            local bagSlot = bagslots[bagNum]
+            if bagSlot then
+                bagSlot.itemStart = slotcount
+            end
+            local step = 35
+            for i=1, bag.size do
+                local slot = _pool_itemSlots:Get()
+                itemslots[slotcount] = slot
+                self.itemslotsCount = self.itemslotsCount + 1
+                local x = slotcount % _slotsPerRow
+                local y = _floor(slotcount / _slotsPerRow)
+                slot:Show()
+                slot:SetParent(self.bagsframe.scroll)
+                slot:SetPoint("TOPLEFT", x * step, y * step * -1)
+                local item = bag.contents[i]
+                slot:SetItem(item)
+                slotcount = slotcount + 1
+            end
+            if bagSlot then
+                bagSlot.itemEnd = slotcount
+            end
+        end
+
         -- update bags
         if bagtype == 1 then -- backpack
             for i = 1, 4 do
@@ -256,35 +292,22 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
                 local bagslot = bagslots[i]
                 bagslot:SetItem(bag)
             end
-
-            for i=0, self.itemslotsCount do -- release used slots
-                local slot = self.itemslots[i]
-                _pool_itemSlots:Release(slot)
-                self.itemslots[i] = nil
-            end
-            wipe(self.itemslots)
-            self.itemslotsCount = 0
-            local slotcount = 0
             for i=0, 4 do -- populate slots
-                local bag = bot.bags[i]
-                local bagSlot = bagslots[i]
-                bagSlot.itemStart = slotcount
-                local step = 35
-                for i=1, bag.size do
-                    local slot = _pool_itemSlots:Get()
-                    self.itemslots[slotcount] = slot
-                    self.itemslotsCount = self.itemslotsCount + 1
-                    local x = slotcount % _slotsPerRow
-                    local y = _floor(slotcount / _slotsPerRow)
-                    slot:Show()
-                    slot:SetParent(self.bagsframe.scroll)
-                    slot:SetPoint("TOPLEFT", x * step, y * step * -1)
-                    local item = bag.contents[i]
-                    slot:SetItem(item)
-                    slotcount = slotcount + 1
-                end
-                bagSlot.itemEnd = slotcount
+                populateSlots(i)
             end
+        elseif bagtype == 2 then -- bank
+            for i = 5, 11 do
+                local bag = bot.bags[i]
+                local bagslot = bagslots[i]
+                bagslot:SetItem(bag)
+            end
+            populateSlots(-1)
+            for i=5, 11 do -- populate slots
+                populateSlots(i)
+            end
+
+        elseif bagtype == 3 then -- keyring
+            populateSlots(-2)
         end
 
         --for y=0, 16 do

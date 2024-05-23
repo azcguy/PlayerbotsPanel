@@ -599,6 +599,7 @@ queryTemplates[QUERY_TYPE.INVENTORY] =
 {
     qtype = QUERY_TYPE.INVENTORY,
     onStart          = function(query)
+        PlayerbotsPanel.InitBag(query.bot.bags[-2], 32, nil) -- keyring
         for i=0, 4 do
             local size = _eval(i == 0, 16, 0)
             PlayerbotsPanel.InitBag(query.bot.bags[i], size, nil)
@@ -882,6 +883,7 @@ REP_MSG_HANDLERS[REPORT_TYPE.INVENTORY] = function(id,payload,bot,status)
         local bagSize = _parser:nextInt()
         local bagLink = _parser:stringToEnd()
         local bag = bot.bags[bagSlot]
+        print(bagSlot,bagSize,bagLink,  bag)
         PlayerbotsPanel.InitBag(bag, bagSize, bagLink)
     elseif subtype == 'i' then
         local bagSlot = _parser:nextInt()

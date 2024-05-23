@@ -275,16 +275,10 @@ function  PlayerbotsPanel.InitBag(bag, size, link)
     bag.link = link
     bag.size = size
     local contents = bag.contents
-    local currentSize = getn(contents)
     for k,v in _pairs(contents) do
         _pool_bagslotdata:Release(v)
     end
     wipe(bag.contents)
-    --if size > 0 then
-    --    for i=1, size do
-    --        contents[i] = getBagSlot()
-    --    end
-    --end
 end
 
 function PlayerbotsPanel.SetBagItemData(bag, slotNum, count, link)
