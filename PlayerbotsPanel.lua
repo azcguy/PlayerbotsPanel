@@ -287,7 +287,7 @@ function  PlayerbotsPanel.InitBag(bag, size, link)
     --end
 end
 
-function PlayerbotsPanel.SetBagItem(bag, slotNum, count, link)
+function PlayerbotsPanel.SetBagItemData(bag, slotNum, count, link)
     local size = bag.size
     local contents = bag.contents
     if slotNum > size then
@@ -325,7 +325,7 @@ function PlayerbotsPanel.SetBagItem(bag, slotNum, count, link)
     end
 end
 
-function PlayerbotsPanel:CreateBag(name, size)
+function PlayerbotsPanel:CreateBagData(name, size)
     local bag = {}
     bag.name = name
     bag.link = nil
@@ -395,20 +395,20 @@ function PlayerbotsPanel:ValidateBotData(bot)
 
 
     EnsureField(bot, "bags", {})
-    EnsureField(bot.bags, -2, PlayerbotsPanel:CreateBag("Keyring", 32))
-    EnsureField(bot.bags, -1, PlayerbotsPanel:CreateBag("Bank Storage", 28)) -- bank 0
-    EnsureField(bot.bags, 0,  PlayerbotsPanel:CreateBag("Backpack", 16)) 
-    EnsureField(bot.bags, 1,  PlayerbotsPanel:CreateBag(nil, 0))
-    EnsureField(bot.bags, 2,  PlayerbotsPanel:CreateBag(nil, 0))
-    EnsureField(bot.bags, 3,  PlayerbotsPanel:CreateBag(nil, 0))
-    EnsureField(bot.bags, 4,  PlayerbotsPanel:CreateBag(nil, 0))
-    EnsureField(bot.bags, 5,  PlayerbotsPanel:CreateBag(nil, 0)) -- bank 1
-    EnsureField(bot.bags, 6,  PlayerbotsPanel:CreateBag(nil, 0)) -- bank 2
-    EnsureField(bot.bags, 7,  PlayerbotsPanel:CreateBag(nil, 0)) -- bank 3
-    EnsureField(bot.bags, 8,  PlayerbotsPanel:CreateBag(nil, 0)) -- bank 4
-    EnsureField(bot.bags, 9,  PlayerbotsPanel:CreateBag(nil, 0)) -- bank 5
-    EnsureField(bot.bags, 10, PlayerbotsPanel:CreateBag(nil, 0)) -- bank 6
-    EnsureField(bot.bags, 11, PlayerbotsPanel:CreateBag(nil, 0)) -- bank 7
+    EnsureField(bot.bags, -2, PlayerbotsPanel:CreateBagData("Keyring", 32))
+    EnsureField(bot.bags, -1, PlayerbotsPanel:CreateBagData("Bank Storage", 28)) -- bank 0
+    EnsureField(bot.bags, 0,  PlayerbotsPanel:CreateBagData("Backpack", 16)) 
+    EnsureField(bot.bags, 1,  PlayerbotsPanel:CreateBagData(nil, 0))
+    EnsureField(bot.bags, 2,  PlayerbotsPanel:CreateBagData(nil, 0))
+    EnsureField(bot.bags, 3,  PlayerbotsPanel:CreateBagData(nil, 0))
+    EnsureField(bot.bags, 4,  PlayerbotsPanel:CreateBagData(nil, 0))
+    EnsureField(bot.bags, 5,  PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 1
+    EnsureField(bot.bags, 6,  PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 2
+    EnsureField(bot.bags, 7,  PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 3
+    EnsureField(bot.bags, 8,  PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 4
+    EnsureField(bot.bags, 9,  PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 5
+    EnsureField(bot.bags, 10, PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 6
+    EnsureField(bot.bags, 11, PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 7
 end
 
 function PlayerbotsPanel:RegisterByName(name)

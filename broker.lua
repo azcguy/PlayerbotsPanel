@@ -75,6 +75,7 @@ local MSG_SEPARATOR_BYTE = _strbyte(":")
 local FLOAT_DOT_BYTE = _strbyte(".")
 local BYTE_ZERO = _strbyte("0")
 local BYTE_MINUS = _strbyte("-")
+local BYTE_NULL_LINK = _strbyte("~")
 local MSG_HEADER = {}
 local NULL_LINK = "~"
 local UTF8_NUM_FIRST = _strbyte("1") -- 49
@@ -162,7 +163,8 @@ _parser.nextString = function(self)
                 self.cursor = i + 1
                 if buffer[1] == NULL_LINK then
                     self.bufferCount = 0
-                    return nil end
+                    return nil 
+                end
                 
                 local result = _tconcat(buffer, nil, 1, bufferCount)
                 self.bufferCount = 0
@@ -183,7 +185,13 @@ _parser.stringToEnd = function(self)
         return "NULL"
     end
     self.bufferCount = 0
-    return _strsub(self.payload, self.cursor)
+    local p = self.payload
+    local c = strbyte(p, self.cursor)
+    if c == BYTE_NULL_LINK then
+        return nil 
+    else
+        return _strsub(p, self.cursor)
+    end
 end
 
 _parser.nextInt = function(self)
@@ -615,11 +623,10 @@ queryTemplates[QUERY_TYPE.INVENTORY] =
             local itemLink = _parser:stringToEnd()
 
             local bag = bot.bags[bagNum]
-            PlayerbotsPanel.SetBagItem(bag, bagSlot, itemCount, itemLink)
+            PlayerbotsPanel.SetBagItemData(bag, bagSlot, itemCount, itemLink)
         end
     end,
     onFinalize       = function(query)
-
         InvokeCallback(CALLBACK_TYPE.INVENTORY_CHANGED, query.bot)
     end,
 }
@@ -882,7 +889,7 @@ REP_MSG_HANDLERS[REPORT_TYPE.INVENTORY] = function(id,payload,bot,status)
         local itemCount = _parser:nextInt()
         local itemLink = _parser:stringToEnd()
         local bag = bot.bags[bagSlot]
-        PlayerbotsPanel.SetBagItem(bag, itemSlot, itemCount, itemLink)
+        PlayerbotsPanel.SetBagItemData(bag, itemSlot, itemCount, itemLink)
     end
 
     InvokeCallback(CALLBACK_TYPE.INVENTORY_CHANGED, bot)
