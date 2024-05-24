@@ -276,6 +276,7 @@ local _pool_bagslotdata = _util.CreatePool(
 function  PlayerbotsPanel.InitBag(bag, size, link)
     bag.link = link
     bag.size = size
+    bag.freeSlots = size
     local contents = bag.contents
     for k,v in _pairs(contents) do
         _pool_bagslotdata:Release(v)
@@ -473,6 +474,8 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
     slot.onEnter = _util.CreateEvent()
     slot.onLeave = _util.CreateEvent()
     slot.updating = false
+    slot.showBagFreeSlots = false
+    slot.itemCountOverrideActive = false
     slot:SetSize(slotSize, slotSize)
     slot:SetScript("OnEnter", function(self, motion)
         self.hitex:Show()
@@ -563,13 +566,35 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
             else
                 slot.qTex:Hide()
             end
-            if not item.count or item.count <= 1 then
-                slot.countText:Hide()
-            else
-                slot.countText:Show()
-                slot.countText:SetText(tostring(item.count))
+            if not slot.itemCountOverrideActive then
+                if slot.showBagFreeSlots then
+                    if not item.freeSlots then
+                        slot.countText:Hide()
+                    else
+                        slot.countText:Show()
+                        slot.countText:SetText(tostring(item.freeSlots))
+                    end
+                else
+                    if not item.count or item.count <= 1 then
+                        slot.countText:Hide()
+                    else
+                        slot.countText:Show()
+                        slot.countText:SetText(tostring(item.count))
+                    end
+                end
             end
         end
+    end
+
+    slot.SetItemCountOverride = function(self, count)
+        self.itemCountOverrideActive = true
+        self.countText:Show()
+        self.countText:SetText(tostring(count))
+    end
+
+    slot.ClearItemCountOverride = function (self)
+        self.itemCountOverrideActive = false
+        self:Redraw()
     end
 
     slot.bgTex = slot:CreateTexture(nil, "BACKGROUND", -7)

@@ -231,6 +231,15 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
     helpIcon.tex:SetTexture("Interface\\GossipFrame\\IncompleteQuestIcon.blp")
     _tooltips.AddInfoTooltip(helpIcon, _data.strings.tooltips.inventoryTabHelp)
 
+    local function CreateTotalFreeSlotsText( x)
+        iframe.totalFreeSlotsText = iframe.topbar:CreateFontString(nil, "ARTWORK", "NumberFontNormal")
+        local text = iframe.totalFreeSlotsText
+        text:SetPoint("TOPRIGHT", x, -2)
+        text:SetSize(32, 32)
+        --text:SetJustifyH("RIGHT")
+        --text:SetJustifyV("BOTTOM")
+    end
+
     if bagtype == 1 then -- bags
 
         local numSlots = 4
@@ -238,6 +247,7 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
             local bagSlot = CreateBagSlot(iframe, 24, i, nil)
             bagSlot:SetPoint("TOPRIGHT", - (26 * (i)), -4)
             bagSlot:SetFrameLevel(150)
+            bagSlot.showBagFreeSlots = true
             iframe.bagslots[i] = bagSlot
             bagSlot.bgTex:SetTexture("Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag.blp")
             if i == 0 then -- backpack
@@ -246,6 +256,8 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
             end
         end
 
+        CreateTotalFreeSlotsText(- (26 * (5)))
+        
     elseif bagtype == 2 then -- bank
 
         local numSlots = 8
@@ -254,6 +266,7 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
             local bagSlot = CreateBagSlot(iframe, 24, i, nil)
             bagSlot:SetPoint("TOPRIGHT", offset - (4 + (26 * (i) * -1)), -4)
             bagSlot:SetFrameLevel(150)
+            bagSlot.showBagFreeSlots = true
 
             local actualId = 0 -- store the bags using actual ContainerID 
             if i == 1 then 
@@ -271,9 +284,10 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
                 bagSlot.itemTex:Show()
             end
         end
-
+        CreateTotalFreeSlotsText(offset)
     elseif bagtype == 3 then -- keyring
         -- no bagslots
+        CreateTotalFreeSlotsText(0)
     end
 
     iframe.Refresh = function (self, bot)
@@ -326,28 +340,43 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
             end
         end
 
+        local totalFreeSlots = 0
         -- update bags
         if bagtype == 1 then -- backpack
+            local bag = bot.bags[0]
+            local bagslot = bagslots[0]
+            bagslot:SetItemCountOverride(bag.freeSlots)
+            totalFreeSlots = totalFreeSlots + bag.freeSlots
             for i = 1, 4 do
-                local bag = bot.bags[i]
-                local bagslot = bagslots[i]
+                bag = bot.bags[i]
+                bagslot = bagslots[i]
                 bagslot:SetItem(bag)
+                totalFreeSlots = totalFreeSlots + bag.freeSlots
             end
             for i=0, 4 do -- populate slots
                 populateSlots(i)
             end
+            iframe.totalFreeSlotsText:SetText(tostring(totalFreeSlots))
         elseif bagtype == 2 then -- bank
+            local bag = bot.bags[-1]
+            local bagslot = bagslots[-1]
+            bagslot:SetItemCountOverride(bag.freeSlots)
+            totalFreeSlots = totalFreeSlots + bag.freeSlots
+
             for i = 5, 11 do
-                local bag = bot.bags[i]
-                local bagslot = bagslots[i]
+                bag = bot.bags[i]
+                bagslot = bagslots[i]
                 bagslot:SetItem(bag)
+                totalFreeSlots = totalFreeSlots + bag.freeSlots
             end
             populateSlots(-1)
             for i=5, 11 do -- populate slots
                 populateSlots(i)
             end
-
+            iframe.totalFreeSlotsText:SetText(tostring(totalFreeSlots))
         elseif bagtype == 3 then -- keyring
+            totalFreeSlots = totalFreeSlots + bot.bags[-2].freeSlots
+            iframe.totalFreeSlotsText:SetText(tostring(totalFreeSlots))
             populateSlots(-2)
         end
 
