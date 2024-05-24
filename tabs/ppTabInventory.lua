@@ -118,7 +118,6 @@ local function  CreateBagSlot(iframe, size, id, bgtex)
     bagSlot.onEnter:Add(function(self, motion)
         local length = self.itemEnd - self.itemStart
         if length == 0 then return end
-        print(self.itemStart, self.itemEnd)
         for i = self.itemStart, self.itemEnd do
             local islot = self.itemslots[i]
             if islot then
@@ -185,7 +184,52 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
     bagsframe.scroll:SetSize(bagsframe:GetWidth(), bagsframe:GetHeight())
     iframe.bagslots = {}
     iframe.itemslots = {}
-    iframe.itemslotsCount = 0
+    iframe.itemSlotsCount = 0
+
+    iframe.updateBagsBtn = CreateFrame("Button", nil, iframe.topbar)
+    local updateBtn = iframe.updateBagsBtn
+    updateBtn:SetFrameStrata("DIALOG")
+    updateBtn:SetFrameLevel(1000)
+    updateBtn:SetPoint("TOPLEFT", iframe.topbar,  0, 0)
+    updateBtn:SetSize(32,32)
+    updateBtn:SetNormalTexture(_data.textures.updateBotsUp)
+    updateBtn:SetPushedTexture(_data.textures.updateBotsDown)
+    updateBtn:SetHighlightTexture(_data.textures.updateBotsHi)
+    updateBtn:SetScript("OnClick", function(self, button, down)
+        _broker:StartQuery(QUERY_TYPE.INVENTORY, PlayerbotsPanel.selectedBot)
+    end)
+    updateBtn:EnableMouse(true)
+    _tooltips.AddInfoTooltip(updateBtn, _data.strings.tooltips.inventoryTabUpdate)
+
+    iframe.hideEmptyBtn = CreateFrame("Button", nil, iframe.topbar)
+    local hideEmptyBtn = iframe.hideEmptyBtn
+    hideEmptyBtn:SetFrameStrata("DIALOG")
+    hideEmptyBtn:SetFrameLevel(1000)
+    hideEmptyBtn:SetPoint("TOPLEFT", iframe.topbar,  32, 0)
+    hideEmptyBtn:SetSize(32,32)
+    hideEmptyBtn:SetHighlightTexture(_data.textures.updateBotsHi)
+    hideEmptyBtn:SetNormalTexture(_data.textures.hideEmptyBtnUp)
+    hideEmptyBtn:SetScript("OnClick", function(self, button, down)
+        _cfg.inventory.hideEmptySlots = not _cfg.inventory.hideEmptySlots
+        if _activeBagTab then
+            _activeBagTab:Refresh(PlayerbotsPanel.selectedBot)
+        end
+    end)
+    hideEmptyBtn:EnableMouse(true)
+    _tooltips.AddInfoTooltip(hideEmptyBtn, _data.strings.tooltips.inventoryTabHideEmptySlots)
+
+    iframe.helpIcon = CreateFrame("Frame", nil, iframe)
+    local helpIcon = iframe.helpIcon
+    helpIcon:SetFrameLevel(1000)
+    helpIcon:Show()
+    helpIcon:SetPoint("TOPLEFT", 64, -8)
+    helpIcon:SetSize(16, 16)
+    helpIcon:EnableMouse(true)
+
+    helpIcon.tex = helpIcon:CreateTexture(nil, "OVERLAY")
+    helpIcon.tex:SetAllPoints(helpIcon)
+    helpIcon.tex:SetTexture("Interface\\GossipFrame\\IncompleteQuestIcon.blp")
+    _tooltips.AddInfoTooltip(helpIcon, _data.strings.tooltips.inventoryTabHelp)
 
     if bagtype == 1 then -- bags
 
@@ -202,26 +246,13 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
             end
         end
 
-        iframe.updateBagsBtn = CreateFrame("Button", nil, iframe.topbar)
-        iframe.updateBagsBtn:SetFrameStrata("DIALOG")
-        iframe.updateBagsBtn:SetFrameLevel(1000)
-        iframe.updateBagsBtn:SetPoint("TOPLEFT", iframe.topbar,  0, 0)
-        iframe.updateBagsBtn:SetSize(32,32)
-        iframe.updateBagsBtn:SetNormalTexture(_data.textures.updateBotsUp)
-        iframe.updateBagsBtn:SetPushedTexture(_data.textures.updateBotsDown)
-        iframe.updateBagsBtn:SetHighlightTexture(_data.textures.updateBotsHi)
-        iframe.updateBagsBtn:SetScript("OnClick", function(self, button, down)
-            _broker:StartQuery(QUERY_TYPE.INVENTORY, PlayerbotsPanel.selectedBot)
-        end)
-        iframe.updateBagsBtn:EnableMouse(true)
-        _tooltips.AddInfoTooltip(PlayerbotsGearView.updateGearButton, _data.strings.tooltips.gearViewUpdateGear)
-
     elseif bagtype == 2 then -- bank
 
         local numSlots = 8
+        local offset = 4 + (26 * numSlots) * -1
         for i=1, numSlots do
             local bagSlot = CreateBagSlot(iframe, 24, i, nil)
-            bagSlot:SetPoint("TOPLEFT", 4 + (26 * (i-1)), -4)
+            bagSlot:SetPoint("TOPRIGHT", offset - (4 + (26 * (i) * -1)), -4)
             bagSlot:SetFrameLevel(150)
 
             local actualId = 0 -- store the bags using actual ContainerID 
@@ -247,18 +278,24 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
 
     iframe.Refresh = function (self, bot)
         if not bot then return end
+        local hideEmptyBtn = self.hideEmptyBtn
+        if _cfg.inventory.hideEmptySlots then
+            hideEmptyBtn:SetNormalTexture(_data.textures.hideEmptyBtnDown)
+        else
+            hideEmptyBtn:SetNormalTexture(_data.textures.hideEmptyBtnUp)
+        end
         
         local bagtype = self.bagtype
         local bagslots = self.bagslots
         local itemslots = self.itemslots
 
-        for i=0, self.itemslotsCount do -- release used slots
+        for i=0, self.itemSlotsCount do -- release used slots
             local slot = itemslots[i]
             _pool_itemSlots:Release(slot)
             itemslots[i] = nil
         end
         wipe(itemslots)
-        self.itemslotsCount = 0
+        self.itemSlotsCount = 0
         local slotcount = 0
         local function populateSlots(bagNum)
             local bag = bot.bags[bagNum]
@@ -267,18 +304,22 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
                 bagSlot.itemStart = slotcount
             end
             local step = 35
+            local hideEmtpy = _cfg.inventory.hideEmptySlots
             for i=1, bag.size do
-                local slot = _pool_itemSlots:Get()
-                itemslots[slotcount] = slot
-                self.itemslotsCount = self.itemslotsCount + 1
-                local x = slotcount % _slotsPerRow
-                local y = _floor(slotcount / _slotsPerRow)
-                slot:Show()
-                slot:SetParent(self.bagsframe.scroll)
-                slot:SetPoint("TOPLEFT", x * step, y * step * -1)
                 local item = bag.contents[i]
-                slot:SetItem(item)
-                slotcount = slotcount + 1
+                local shouldHide = hideEmtpy and ( not item or not item.link)
+                if not shouldHide then
+                    local slot = _pool_itemSlots:Get()
+                    itemslots[slotcount] = slot
+                    self.itemSlotsCount = self.itemSlotsCount + 1
+                    local x = slotcount % _slotsPerRow
+                    local y = _floor(slotcount / _slotsPerRow)
+                    slot:Show()
+                    slot:SetParent(self.bagsframe.scroll)
+                    slot:SetPoint("TOPLEFT", x * step, y * step * -1)
+                    slot:SetItem(item)
+                    slotcount = slotcount + 1
+                end
             end
             if bagSlot then
                 bagSlot.itemEnd = slotcount

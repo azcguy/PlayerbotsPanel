@@ -102,11 +102,13 @@ _data.textures.slotIDbg = {
 --  INVSLOT_RELIC           = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Relic.blp"
 }
 
-_data.textures.updateBotsUp = "Interface\\GLUES\\CHARACTERCREATE\\UI-RotationRight-Big-Up.blp"
-_data.textures.updateBotsDown = "Interface\\GLUES\\CHARACTERCREATE\\UI-RotationRight-Big-Down.blp"
+_data.textures.updateBotsUp =  _data.ROOT_PATH .. "textures\\button_update_up.tga"
+_data.textures.updateBotsDown =   _data.ROOT_PATH .. "textures\\button_update_down.tga"
 _data.textures.updateBotsHi = _data.ROOT_PATH .. "textures\\UI-RotationRight-Big-Hi.tga"
-
+-- inventory tab
 _data.textures.inventoryTopbar = _data.ROOT_PATH .. "textures\\inventory_topbar.tga"
+_data.textures.hideEmptyBtnDown = _data.ROOT_PATH .. "textures\\inventory_button_hide_empty_down.tga"
+_data.textures.hideEmptyBtnUp = _data.ROOT_PATH .. "textures\\inventory_button_hide_empty_up.tga"
 
 _data.textures.slotLoading = _data.ROOT_PATH .. "textures\\slot_loading.tga"
 
@@ -170,3 +172,7 @@ _data.strings.tooltips.uninviteBot = "Uninvite from party / raid"
 -- gear view
 _data.strings.tooltips.gearViewHelp = "Left click to unequip item \nRight click to put item in trade\nDrag items on the portrait to trade them"
 _data.strings.tooltips.gearViewUpdateGear = "Update all selected bot gear\nUse if you notice desync due to bugs or network"
+-- inventory tab
+_data.strings.tooltips.inventoryTabUpdate = "Update all bot items and bags, including bank and keychain\nUse if you notice desync due to bugs or network"
+_data.strings.tooltips.inventoryTabHelp = "Right click to use or equip item\nLeft click to start \" Use item on item\" action and right click to abort\nShift + Left click to print item link in chat"
+_data.strings.tooltips.inventoryTabHideEmptySlots = "Hide empty slots"

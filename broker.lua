@@ -71,15 +71,15 @@ local _eval = _util.CompareAndReturn
 -- SHARED BETWEEN EMU/BROKER
 
 local MSG_SEPARATOR = ":"
-local MSG_SEPARATOR_BYTE = _strbyte(":")
-local FLOAT_DOT_BYTE = _strbyte(".")
-local BYTE_ZERO = _strbyte("0")
-local BYTE_MINUS = _strbyte("-")
-local BYTE_NULL_LINK = _strbyte("~")
+local MSG_SEPARATOR_BYTE      = _strbyte(":")
+local FLOAT_DOT_BYTE          =  _strbyte(".")
+local BYTE_ZERO               = _strbyte("0")
+local BYTE_MINUS              = _strbyte("-")
+local BYTE_NULL_LINK          = _strbyte("~")
 local MSG_HEADER = {}
 local NULL_LINK = "~"
-local UTF8_NUM_FIRST = _strbyte("1") -- 49
-local UTF8_NUM_LAST = _strbyte("9") -- 57
+local UTF8_NUM_FIRST          = _strbyte("1") -- 49
+local UTF8_NUM_LAST           = _strbyte("9") -- 57
 
 MSG_HEADER.SYSTEM =             _strbyte("s")
 MSG_HEADER.REPORT =             _strbyte("r")
@@ -121,10 +121,59 @@ QUERY_OPCODE.FINAL    =         _strbyte("f") -- final message of the query, con
 
 
 PlayerbotsBrokerCommandType = {}
-local CMD_TYPE = PlayerbotsBrokerCommandType
-CMD_TYPE.SUMMON = 0 
-CMD_TYPE.STAY = 1
-CMD_TYPE.FOLLOW = 2
+local COMMAND = PlayerbotsBrokerCommandType
+COMMAND.STATE        =          _strbyte("s")
+--[[ 
+    subtypes:
+        s - stay
+        f - follow
+        g - grind
+        F - flee
+        r - runaway (kite mob)
+        l - leave party
+]] 
+COMMAND.ITEM          =         _strbyte("i")
+--[[ 
+    subtypes:
+        e - equip
+        u - unequip
+        U - use
+        t - use on target
+        d - destroy
+        s - sell
+        j - sell junk
+        b - buy
+]] 
+COMMAND.GIVE_GOLD     =         _strbyte("g")
+COMMAND.BANK          =         _strbyte("b")
+--[[ 
+    subtypes:
+        d - bank deposit
+        w - bank withdraw
+        D - guild bank deposit 
+        W - guild bank withdraw
+]]
+COMMAND.QUEST          =         _strbyte("b")
+--[[ 
+    subtypes:
+        a - accept quest
+        A - accept all
+        d - drop quest
+        r - choose reward item
+        t - talk to quest npc
+        u - use game object (use los query to obtain the game object link)
+]]
+COMMAND.MISC           =         _strbyte("m")
+--[[ 
+    subtypes:
+        t - learn from trainer
+        c - cast spell
+        h - set home at innkeeper
+        r - release spirit when dead
+        R - revive when near spirit healer
+        s - summon
+]]
+
 
 -- ============================================================================================
 -- PARSER 
@@ -136,6 +185,10 @@ local _parser = {
     dotbyte = FLOAT_DOT_BYTE,
     buffer = {}
 }
+
+local BYTE_LINK_SEP = _strbyte("|")
+local BYTE_LINK_TERMINATOR = _strbyte("r")
+
 _parser.start = function (self, payload)
     if not payload then 
         self.broken = true
@@ -180,6 +233,7 @@ _parser.nextString = function(self)
         end
     end
 end
+
 _parser.stringToEnd = function(self)
     if self.broken then
         return "NULL"
@@ -191,6 +245,47 @@ _parser.stringToEnd = function(self)
         return nil 
     else
         return _strsub(p, self.cursor)
+    end
+end
+
+_parser.nextLink = function(self)
+    if self.broken then
+        return nil
+    end
+    local strbyte = _strbyte
+    local strchar = _strchar
+    local buffer = self.buffer
+    local p = self.payload
+    local start = self.cursor
+    local v = false -- validate  the | char
+    -- if after the validator proceeds an 'r' then we terminate the link
+    for i = self.cursor, self.len+1 do
+        local c = strbyte(p, i)
+        self.cursor = i
+        if v == true then
+            if c == BYTE_LINK_TERMINATOR then
+                local result = _strsub(p, start, i)
+                self.cursor = i + 2 -- as we dont end on separator we jump 1 ahead
+                return result
+            else
+                v = false
+            end
+        end
+
+        if c == BYTE_LINK_SEP then
+            v = true
+        end
+
+        if c == NULL_LINK then
+            self.cursor = i + 1
+            return nil
+        end
+
+        if c == nil then
+            -- we reached the end of payload but didnt close the link, the link is either not a link or invalid
+            -- return null?
+            return nil
+        end
     end
 end
 
@@ -342,8 +437,16 @@ _parser.nextChar = function (self)
     end
 end
 
+_parser.validateLink = function(link)
+    if link == nil then return false end
+    local l = _strlen(link)
+    local v1 = _strbyte(link, l) == BYTE_LINK_TERMINATOR
+    local v2 = _strbyte(link, l-1) == BYTE_LINK_SEP
+    return v1 and v2
+end
+
 -----------------------------------------------------------------------------
------ PARSER END
+----- PARSER END / SHARED REGION END
 -----------------------------------------------------------------------------
 
 local function GetCallbackArray(ctype, name)
@@ -571,7 +674,7 @@ queryTemplates[QUERY_TYPE.GEAR] =
         _parser:start(payload)
         local slot = _parser:nextInt()
         local count = _parser:nextInt()
-        local link = _parser:stringToEnd()
+        local link = _parser:nextLink()
         query.ctx1[slot] = link
         query.ctx2[slot] = count
         query.ctx1.changed = true
@@ -612,7 +715,7 @@ queryTemplates[QUERY_TYPE.INVENTORY] =
         if subtype == 'b' then
             local bagNum = _parser:nextInt()
             local bagSize = _parser:nextInt()
-            local bagLink = _parser:stringToEnd()
+            local bagLink = _parser:nextLink()
 
             local bag = bot.bags[bagNum]
             PlayerbotsPanel.InitBag(bag, bagSize, bagLink)
@@ -621,7 +724,7 @@ queryTemplates[QUERY_TYPE.INVENTORY] =
             local bagNum = _parser:nextInt()
             local bagSlot = _parser:nextInt()
             local itemCount = _parser:nextInt()
-            local itemLink = _parser:stringToEnd()
+            local itemLink = _parser:nextLink()
 
             local bag = bot.bags[bagNum]
             PlayerbotsPanel.SetBagItemData(bag, bagSlot, itemCount, itemLink)
@@ -849,7 +952,7 @@ REP_MSG_HANDLERS[REPORT_TYPE.ITEM_EQUIPPED] = function(id,payload,bot,status)
     _parser:start(payload)
     local slotNum = _parser:nextInt()
     local countNum = _parser:nextInt()
-    local link = _parser:stringToEnd()
+    local link = _parser:nextLink()
     local item = bot.items[slotNum]
     local changed = false;
 
@@ -881,15 +984,14 @@ REP_MSG_HANDLERS[REPORT_TYPE.INVENTORY] = function(id,payload,bot,status)
     if subtype == 'b' then
         local bagSlot = _parser:nextInt()
         local bagSize = _parser:nextInt()
-        local bagLink = _parser:stringToEnd()
+        local bagLink = _parser:nextLink()
         local bag = bot.bags[bagSlot]
-        print(bagSlot,bagSize,bagLink,  bag)
         PlayerbotsPanel.InitBag(bag, bagSize, bagLink)
     elseif subtype == 'i' then
         local bagSlot = _parser:nextInt()
         local itemSlot = _parser:nextInt()
         local itemCount = _parser:nextInt()
-        local itemLink = _parser:stringToEnd()
+        local itemLink = _parser:nextLink()
         local bag = bot.bags[bagSlot]
         PlayerbotsPanel.SetBagItemData(bag, itemSlot, itemCount, itemLink)
     end
@@ -903,8 +1005,6 @@ REP_MSG_HANDLERS[REPORT_TYPE.QUEST] = function(id,payload,bot,status) end
 local MSG_HANDLERS = {}
 MSG_HANDLERS[MSG_HEADER.SYSTEM] = SYS_MSG_HANDLERS
 MSG_HANDLERS[MSG_HEADER.REPORT] = REP_MSG_HANDLERS
-
-
 
 function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
     if prefix == _prefixCode then 
