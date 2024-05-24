@@ -122,7 +122,6 @@ function PlayerbotsPanel:OnInitialize()
     _updateHandler:Init()
     _broker:Init(_dbchar.bots)
     _itemCache:Init()
-
     self:CreateWindow()
     self:RegisterChatCommand("/pp", self.commands)
     --self:RegisterEvent("PLAYER_LOGIN")
@@ -154,6 +153,9 @@ end
 
 function PlayerbotsPanel:OnShow()
     PlaySound(_data.sounds.onAddonShow)
+    if _dbchar.lastSelectedBot then
+        PlayerbotsPanel:SetSelectedBot(_dbchar.lastSelectedBot)
+    end
 end
 
 function PlayerbotsPanel:OnHide()
@@ -440,6 +442,7 @@ function PlayerbotsPanel:SetSelectedBot(botname)
     local bot = PlayerbotsPanel:GetBot(botname)
     if bot == nil then return end
     self.selectedBot = bot
+    _dbchar.lastSelectedBot = botname
     PlayerbotsPanel:UpdateBotSelector()
     PlayerbotsPanel:UpdateGearView(botname)
     PlaySound(_data.sounds.onBotSelect)
