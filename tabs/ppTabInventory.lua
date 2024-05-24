@@ -9,6 +9,7 @@ PlayerbotsPanelTabInventory.customSound = "BAGMENUBUTTONPRESS"
 
 local _broker = PlayerbotsBroker
 local QUERY_TYPE = PlayerbotsBrokerQueryType
+local COMMAND = PlayerbotsBrokerCommandType
 local _data = PlayerbotsPanelData
 local _util = PlayerbotsPanelUtil
 local _eval = _util.CompareAndReturn
@@ -28,6 +29,20 @@ local _pool_itemSlots = _util.CreatePool(
     function ()
         local slot = PlayerbotsPanel.CreateSlot(nil, 35, 0, nil)
         slot.bgTex:SetVertexColor(0.4,0.4,0.4)
+
+        slot.onClick:Add(function (self, button, down)
+            local item = self.item
+            if not down and item and item.link then
+                if button == "RightButton" then
+                    _broker:GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_USE, item.link)
+                elseif button == "LeftButton" then
+                    if IsShiftKeyDown() then
+                        print(item.link)
+                    end
+                end
+            end
+        end)
+
         return slot
     end,
     function (elem)

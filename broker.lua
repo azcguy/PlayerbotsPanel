@@ -133,6 +133,14 @@ COMMAND.STATE        =          _strbyte("s")
         l - leave party
 ]] 
 COMMAND.ITEM          =         _strbyte("i")
+COMMAND.ITEM_EQUIP    =         _strbyte("e")
+COMMAND.ITEM_UNEQUIP  =         _strbyte("u")
+COMMAND.ITEM_USE      =         _strbyte("U")
+COMMAND.ITEM_USE_TARGET=        _strbyte("t")
+COMMAND.ITEM_DESTROY  =         _strbyte("d")
+COMMAND.ITEM_SELL     =         _strbyte("s")
+COMMAND.ITEM_SELL_JUNK=         _strbyte("j")
+COMMAND.ITEM_BUY      =         _strbyte("b")
 --[[ 
     subtypes:
         e - equip
@@ -435,6 +443,10 @@ _parser.nextChar = function (self)
             end
         end
     end
+end
+
+_parser.nextCharAsByte = function (self)
+    return _strbyte(self:nextChar())
 end
 
 _parser.validateLink = function(link)
@@ -1075,6 +1087,10 @@ function PlayerbotsBroker:GetQueriesArray(name)
         _queries[name] = array
     end
     return array
+end
+
+function PlayerbotsBroker:GenerateCommand(bot, cmd, subcmd, arg2, arg3, arg4)
+    PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.COMMAND, cmd, 0, _tconcat({ _strchar(subcmd), arg2, arg3, arg4}, MSG_SEPARATOR))
 end
 
 function PlayerbotsBroker:GenerateQueryMsg(query, payload)

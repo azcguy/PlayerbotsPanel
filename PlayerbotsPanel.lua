@@ -473,6 +473,7 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
     slot.onClick = _util.CreateEvent()
     slot.onEnter = _util.CreateEvent()
     slot.onLeave = _util.CreateEvent()
+    slot:RegisterForClicks("AnyUp", "AnyDown")
     slot.updating = false
     slot.showBagFreeSlots = false
     slot.itemCountOverrideActive = false
