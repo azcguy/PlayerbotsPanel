@@ -109,6 +109,11 @@ _data.textures.updateBotsHi = _data.ROOT_PATH .. "textures\\UI-RotationRight-Big
 _data.textures.inventoryTopbar = _data.ROOT_PATH .. "textures\\inventory_topbar.tga"
 _data.textures.hideEmptyBtnDown = _data.ROOT_PATH .. "textures\\inventory_button_hide_empty_down.tga"
 _data.textures.hideEmptyBtnUp = _data.ROOT_PATH .. "textures\\inventory_button_hide_empty_up.tga"
+_data.textures.tradeBtnDown = _data.ROOT_PATH .. "textures\\button_trade_down.tga"
+_data.textures.tradeBtnUp = _data.ROOT_PATH .. "textures\\button_trade_up.tga"
+_data.textures.useBtnDown = _data.ROOT_PATH .. "textures\\button_use_down.tga"
+_data.textures.useBtnUp = _data.ROOT_PATH .. "textures\\button_use_up.tga"
+_data.textures.useItemOnItemFrame = _data.ROOT_PATH .. "textures\\frame_item_use_on_item.tga"
 
 _data.textures.slotLoading = _data.ROOT_PATH .. "textures\\slot_loading.tga"
 
@@ -153,7 +158,7 @@ _data.raceData =
 ----- Sounds
 -----------------------------------------------------------------------------
 
-_data.sounds.onAddonShow = "KeyRingOpen"
+_data.sounds.onAddonShow = ""--"KeyRingOpen"
 _data.sounds.onAddonHide = "gsTitleQuit"
 _data.sounds.onTabSwitch = "igAbilityOpen"
 _data.sounds.onBotSelect = "INTERFACESOUND_GAMESCROLLBUTTON"
@@ -170,9 +175,11 @@ _data.strings.tooltips.removeBot = "Remove bot, it will go offline"
 _data.strings.tooltips.inviteBot = "Invite bot to party / raid"
 _data.strings.tooltips.uninviteBot = "Uninvite from party / raid"
 -- gear view
-_data.strings.tooltips.gearViewHelp = "Left click to unequip item \nRight click to put item in trade\nDrag items on the portrait to trade them"
+_data.strings.tooltips.gearViewHelp = "Right click to unequip item\nDrag items from your bag on the portrait to trade them"
 _data.strings.tooltips.gearViewUpdateGear = "Update all selected bot gear\nUse if you notice desync due to bugs or network"
 -- inventory tab
 _data.strings.tooltips.inventoryTabUpdate = "Update all bot items and bags, including bank and keychain\nUse if you notice desync due to bugs or network"
-_data.strings.tooltips.inventoryTabHelp = "Right click to use or equip item\nLeft click to start \" Use item on item\" action and right click to abort\nShift + Left click to print item link in chat"
+_data.strings.tooltips.inventoryTabHelp = "Right click to use or equip item. If trade is opened, will put it in trade.\nLeft click to start \" Use item on item\" action and right click to abort\nShift + Left click to print item link in chat"
 _data.strings.tooltips.inventoryTabHideEmptySlots = "Hide empty slots"
+_data.strings.tooltips.inventoryTabTradeBtn = "Open / Close trade panel"
+_data.strings.tooltips.inventoryTabUseBtn = "Use item on item mode, left click first then second item.\nRight click to cancel"

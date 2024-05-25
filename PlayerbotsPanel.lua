@@ -16,9 +16,11 @@ local _itemCache = PlayerbotsPanelItemCache
 local _dbaccount = {}
 local CALLBACK_TYPE = PlayerbotsBrokerCallbackType
 local QUERY_TYPE = PlayerbotsBrokerQueryType
+local COMMAND = PlayerbotsBrokerCommandType
 local _eval = _util.CompareAndReturn
 local _pairs = pairs
 PlayerbotsPanel.selectedBot = nil
+PlayerbotsPanel.isTrading = false
 PlayerbotsPanel.events = {}
 PlayerbotsPanel.events.onBotSelectionChanged = _util.CreateEvent()
 
@@ -135,6 +137,7 @@ function PlayerbotsPanel:OnInitialize()
     self:RegisterEvent("CHAT_MSG_ADDON")
     self:RegisterEvent("CHAT_MSG_SYSTEM")
     self:RegisterEvent("TRADE_CLOSED")
+    self:RegisterEvent("TRADE_SHOW")
 
 end
 
@@ -194,6 +197,11 @@ function PlayerbotsPanel:PARTY_MEMBER_DISABLE()
 end
 
 function PlayerbotsPanel:TRADE_CLOSED()
+    PlayerbotsPanel.isTrading = false
+end
+
+function PlayerbotsPanel:TRADE_SHOW()
+    PlayerbotsPanel.isTrading = true
 end
 
 function PlayerbotsPanel:UNIT_MODEL_CHANGED()
@@ -467,8 +475,9 @@ local function UpdateGearSlot(bot, slotNum)
     end
 end
 
+
 function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
-    local slot =  CreateFrame("Button", nil, frame)
+    local slot =  CreateFrame("Button", "pp_slot", frame)
     slot.id = id
     slot.onClick = _util.CreateEvent()
     slot.onEnter = _util.CreateEvent()
@@ -720,6 +729,19 @@ function PlayerbotsPanel:SetupGearSlot(id, x, y)
         local slot = PlayerbotsPanel.CreateSlot(PlayerbotsGearView.frame, 38, id, bgTex)
         slots[id] = slot 
         slot:SetPoint("TOPLEFT", x, y)
+        slot.onClick:Add(function (slot, button, down)
+            if slot.item and slot.item.link then
+                if not down then
+                    if button == "RightButton" then
+                        _broker:GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_UNEQUIP, slot.item.link)
+                        PlaySound("SPELLBOOKCLOSE")
+                    elseif button == "LeftButton" then
+                        --_broker:GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_TRADE, slot.item.link)
+                        --PlaySound("SPELLBOOKCLOSE")
+                    end
+                end
+            end
+        end)
     end
 end
 
@@ -733,20 +755,20 @@ function PlayerbotsPanel:DropItemSelected()
 end
 
 function PlayerbotsPanel:SetupGearFrame()
-    ModelViewFrame:SetFrameStrata("DIALOG")
+    --ModelViewFrame:SetFrameStrata("DIALOG")
     ModelViewFrame:SetWidth(200)
     ModelViewFrame:SetHeight(300)
     ModelViewFrame:SetPoint("CENTER", -125, 0)
 
-    PlayerbotsGear:SetFrameStrata("DIALOG")
-    PlayerbotsGear:SetFrameLevel(100)
+    --PlayerbotsGear:SetFrameStrata("DIALOG")
+    PlayerbotsGear:SetFrameLevel(5)
     	PlayerbotsGear:SetPoint("TOPLEFT", 169, -26)
     PlayerbotsGear:SetWidth(219)
     PlayerbotsGear:SetHeight(362)
 
-    PlayerbotsGearView.dropFrame = CreateFrame("Button", nil, PlayerbotsGear)
+    PlayerbotsGearView.dropFrame = CreateFrame("Button", "pp_gear_dropFrame", PlayerbotsGear)
     local dropFrame = PlayerbotsGearView.dropFrame
-    dropFrame:SetFrameLevel(1000)
+    dropFrame:SetFrameLevel(6)
     dropFrame:SetPoint("TOPLEFT", 46, -32)
     dropFrame:SetWidth(123)
     dropFrame:SetHeight(285)
@@ -804,10 +826,10 @@ function PlayerbotsPanel:SetupGearFrame()
     ModelViewFrame.bgTex:SetWidth(ModelViewFrame:GetWidth())
     ModelViewFrame.bgTex:SetHeight(ModelViewFrame:GetHeight())
 
-    PlayerbotsGearView.updateGearButton = CreateFrame("Button", nil, PlayerbotsGear)
+    PlayerbotsGearView.updateGearButton = CreateFrame("Button", "pp_updateGearButton", PlayerbotsGear)
     local updateGearBtn = PlayerbotsGearView.updateGearButton
-    updateGearBtn:SetFrameStrata("DIALOG")
-    updateGearBtn:SetFrameLevel(1000)
+    --updateGearBtn:SetFrameStrata("DIALOG")
+    updateGearBtn:SetFrameLevel(7)
     updateGearBtn:SetPoint("BOTTOMLEFT", PlayerbotsGear,  48, 43)
     updateGearBtn:SetSize(24,24)
     updateGearBtn:SetNormalTexture(_data.textures.updateBotsUp)
@@ -867,7 +889,7 @@ function PlayerbotsPanel:SetupGearFrame()
 
     PlayerbotsGearView.helpIcon = CreateFrame("Frame", nil, PlayerbotsGear)
     local helpIcon = PlayerbotsGearView.helpIcon
-    helpIcon:SetFrameLevel(5000)
+    helpIcon:SetFrameLevel(7)
     helpIcon:Show()
     helpIcon:SetPoint("TOPRIGHT", -5, -5)
     helpIcon:SetSize(15, 15)
@@ -970,7 +992,7 @@ function PlayerbotsPanel:CreateWindow()
     UIPanelWindows[PlayerbotsFrame:GetName()] = { area = "center", pushable = 0, whileDead = 1 }
     tinsert(UISpecialFrames, PlayerbotsFrame:GetName())
     PlayerbotsFrame:HookScript("OnUpdate", PlayerbotsPanel.Update)
-    PlayerbotsFrame:SetFrameStrata("HIGH")
+    PlayerbotsFrame:SetFrameStrata(_cfg.panelStrata)
     PlayerbotsFrame:SetWidth(800)
     PlayerbotsFrame:SetHeight(420)
     PlayerbotsFrame:SetPoint("CENTER")
@@ -991,7 +1013,7 @@ function PlayerbotsPanel:CreateWindow()
     PlayerbotsPanel.botSelectorParentFrame:SetPoint("TOPLEFT", 0, -24)
     PlayerbotsPanel.botSelectorParentFrame:SetSize(140, 368)
     
-    PlayerbotsPanel.botSelectorFrame = CreateFrame("Frame")
+    PlayerbotsPanel.botSelectorFrame = CreateFrame("Frame", "pp_botselector_scroll", PlayerbotsPanel.botSelectorParentFrame)
     PlayerbotsPanel.botSelectorParentFrame:SetScrollChild(PlayerbotsPanel.botSelectorFrame)
     PlayerbotsPanel.botSelectorFrame:SetPoint("TOPLEFT", 10,0)
     PlayerbotsPanel.botSelectorFrame:SetWidth(PlayerbotsPanel.botSelectorParentFrame:GetWidth()-18)
@@ -1399,7 +1421,7 @@ local function CreateTabButton(name, frame, tab)
     end
 
     local iconSize = 14
-    button.frame = CreateFrame("Button", nil, frame)
+    button.frame = CreateFrame("Button", "pp_tabButton_" .. name, frame)
     button.frame:SetText("") -- hide button built in text
     button.text = button.frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     button.text:SetText(name)
@@ -1409,7 +1431,7 @@ local function CreateTabButton(name, frame, tab)
     local sizeX = strWidth + 42
     local padding = -8
 
-    button.frame:SetFrameStrata("DIALOG")
+    --button.frame:SetFrameStrata("DIALOG")
     button.frame:SetNormalTexture(ROOT_PATH .. "textures\\UI-CHARACTER-INACTIVETAB.tga")
     button.frame:SetPushedTexture(ROOT_PATH .. "textures\\UI-CHARACTER-ACTIVETAB.tga")
     button.frame:SetScript("OnClick", button.onclick)
@@ -1458,8 +1480,9 @@ local function CreateTab(name, frame, tabNum, tabGroup)
         bUseFullFrame = tab.object.useFullFrame
         bUseBackground = tab.object.useBackground
     end
-    tab.outerframe = CreateFrame("Frame", nil, frame)
-    tab.outerframe:SetFrameStrata("HIGH")
+    tab.outerframe = CreateFrame("Frame", "pp_tab_outer_" .. name, frame)
+    --tab.outerframe:SetFrameStrata("HIGH")
+    tab.outerframe:SetFrameLevel(2)
 
     if bUseFullFrame then
         tab.outerframe:SetPoint("TOPLEFT", 169, -26)
@@ -1479,9 +1502,9 @@ local function CreateTab(name, frame, tabNum, tabGroup)
         frameBg:SetHeight(tab.outerframe:GetHeight())
     end
 
-    tab.innerframe = CreateFrame("Frame", nil, tab.outerframe)
-    tab.innerframe:SetFrameStrata("HIGH")
-    tab.innerframe:SetFrameLevel(200)
+    tab.innerframe = CreateFrame("Frame", "pp_tab_inner_" .. name, tab.outerframe)
+    --tab.innerframe:SetFrameStrata("HIGH")
+    tab.innerframe:SetFrameLevel(3)
     tab.innerframe:SetPoint("TOPLEFT", 0, 0)
     tab.innerframe:SetWidth(tab.outerframe:GetWidth())
     tab.innerframe:SetHeight(tab.outerframe:GetHeight())
@@ -1506,7 +1529,7 @@ local function CreateTab(name, frame, tabNum, tabGroup)
         end
     end
     tab.CreateSideButton = function (self, icon, onActivate, onDeactivate, stringTooltip)
-        local sideBtn = CreateFrame("Button", nil, self.outerframe)
+        local sideBtn = CreateFrame("Button", "pp_tab_sidebtn", self.outerframe)
         local size = 54
         sideBtn.idx = getn(tab.sideButtons) + 1
         sideBtn.tab = self

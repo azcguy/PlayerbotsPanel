@@ -8,22 +8,76 @@ PlayerbotsPanelTabInventory.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures
 PlayerbotsPanelTabInventory.customSound = "BAGMENUBUTTONPRESS"
 
 local _broker = PlayerbotsBroker
-local QUERY_TYPE = PlayerbotsBrokerQueryType
-local COMMAND = PlayerbotsBrokerCommandType
+local _updateHandler = PlayerbotsPanelUpdateHandler
 local _data = PlayerbotsPanelData
 local _util = PlayerbotsPanelUtil
 local _eval = _util.CompareAndReturn
 local _floor = math.floor
 local _cfg = PlayerbotsPanelConfig
 local _tooltips = PlayerbotsPanelTooltips
+
+local QUERY_TYPE = PlayerbotsBrokerQueryType
+local COMMAND = PlayerbotsBrokerCommandType
+
 local _tab = nil
 local _frame = nil
 local _slots = {}
 local _scrollBarId = 1
 local _slotsPerRow = 11
-
 local _activeBagTab = nil
 local _bagFrames = {} -- 1 bags, 2 bank
+local _frameUseItemOnItem = {}
+local _item_toBeUsedOnAnotherItem = nil
+
+local function  SetItemToUseOnAnotherItem(item)
+    if item and item.link then
+        -- print(IsUsableItem(item.link))
+        -- cant implement usable check because it applies local player restrictions, so it should actually be UsableByPlayer()
+        -- there is another more convoluted way i will implement later
+        _frameUseItemOnItem:Show()
+        _frameUseItemOnItem.slot:SetItem(item)
+        _frame.useBtn:LockHighlight()
+    else
+        _frameUseItemOnItem:Hide()
+        _frameUseItemOnItem.slot:SetItem(nil)
+        _frame.useBtn:UnlockHighlight()
+    end
+    _item_toBeUsedOnAnotherItem = item
+end
+
+local function HandleSlotClicks(slot, button, down)
+    local item = slot.item
+    if _item_toBeUsedOnAnotherItem and _item_toBeUsedOnAnotherItem.link and not down then
+        if button == "LeftButton" and not _updateHandler:GetGlobalMouseButtonConsumed(1) then
+            _broker:GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_USE_ON, _item_toBeUsedOnAnotherItem.link, item.link)
+            SetItemToUseOnAnotherItem(nil)
+            _updateHandler:SetGlobalMouseButtonConsumed(1)
+        end
+    else
+        if not down and item and item.link then
+            if button == "RightButton" then
+                if not _updateHandler:GetGlobalMouseButtonConsumed(2) then
+                    _broker:GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_USE, item.link)
+                    PlaySound("SPELLBOOKCLOSE")
+                end
+            elseif button == "LeftButton" then
+                if IsShiftKeyDown() then
+                    print(item.link)
+                else
+                    SetItemToUseOnAnotherItem(item)
+                end
+            end
+        end
+    end
+end
+
+local function HandleGlobalMouseClick(button, down)
+    if button == "RightButton" and not down then
+        if _item_toBeUsedOnAnotherItem then
+            SetItemToUseOnAnotherItem(nil)
+        end
+    end
+end
 
 local _pool_itemSlots = _util.CreatePool(
     function ()
@@ -31,16 +85,7 @@ local _pool_itemSlots = _util.CreatePool(
         slot.bgTex:SetVertexColor(0.4,0.4,0.4)
 
         slot.onClick:Add(function (self, button, down)
-            local item = self.item
-            if not down and item and item.link then
-                if button == "RightButton" then
-                    _broker:GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_USE, item.link)
-                elseif button == "LeftButton" then
-                    if IsShiftKeyDown() then
-                        print(item.link)
-                    end
-                end
-            end
+            HandleSlotClicks(self, button, down)
         end)
 
         return slot
@@ -74,11 +119,15 @@ end
 function PlayerbotsPanelTabInventory:OnActivate(tab)
     _frame:Show()
     _broker:RegisterGlobalCallback(PlayerbotsBrokerCallbackType.INVENTORY_CHANGED, HandleQuery_INVENTORY_CHANGED)
+    _updateHandler.onMouseButton:Add(HandleGlobalMouseClick)
+    SetItemToUseOnAnotherItem(nil)
 end
 
 function PlayerbotsPanelTabInventory:OnDeactivate(tab)
     _frame:Hide()
     _broker:UnregisterGlobalCallback(PlayerbotsBrokerCallbackType.INVENTORY_CHANGED, HandleQuery_INVENTORY_CHANGED)
+    _updateHandler.onMouseButton:Remove(HandleGlobalMouseClick)
+    SetItemToUseOnAnotherItem(nil)
 end
 
 function PlayerbotsPanelTabInventory:Init(tab)
@@ -88,6 +137,20 @@ function PlayerbotsPanelTabInventory:Init(tab)
     _bagFrames[1] = _self.CreateBagsTab(1) -- bags
     _bagFrames[2] = _self.CreateBagsTab(2) -- bank
     _bagFrames[3] = _self.CreateBagsTab(3) -- keyring
+
+    _frameUseItemOnItem = CreateFrame("Frame", nil, _frame)
+    print()
+    _frameUseItemOnItem:SetPoint("TOPLEFT", 90, 40)
+    _frameUseItemOnItem:SetFrameLevel(10)
+    _frameUseItemOnItem:SetSize(45, 45)
+    _util.SetBackdrop(_frameUseItemOnItem, _data.textures.useItemOnItemFrame)
+
+    _frameUseItemOnItem.slot = PlayerbotsPanel.CreateSlot(_frameUseItemOnItem, 32, 0, nil)
+    _frameUseItemOnItem.slot:SetSize(32,32)
+    _frameUseItemOnItem.slot:SetPoint("CENTER", 0, 0)
+    _frameUseItemOnItem.slot:SetFrameLevel(11)
+    _frameUseItemOnItem:Hide()
+
 
     tab:CreateSideButton("Interface\\ICONS\\INV_Misc_Bag_08.blp", 
         function ()
@@ -105,6 +168,87 @@ function PlayerbotsPanelTabInventory:Init(tab)
         end, nil, "Keyring")
 
     PlayerbotsPanelTabInventory.ActivateBagsFrame(1)
+
+    _frame.updateBagsBtn = CreateFrame("Button", nil, _frame)
+    local updateBtn = _frame.updateBagsBtn
+    --updateBtn:SetFrameStrata("DIALOG")
+    updateBtn:SetFrameLevel(6)
+    updateBtn:SetPoint("TOPLEFT", 0, 0)
+    updateBtn:SetSize(32,32)
+    updateBtn:SetNormalTexture(_data.textures.updateBotsUp)
+    updateBtn:SetPushedTexture(_data.textures.updateBotsDown)
+    updateBtn:SetHighlightTexture(_data.textures.updateBotsHi)
+    updateBtn:SetScript("OnClick", function(self, button, down)
+        _broker:StartQuery(QUERY_TYPE.INVENTORY, PlayerbotsPanel.selectedBot)
+        PlaySound("GAMEGENERICBUTTONPRESS")
+    end)
+    updateBtn:EnableMouse(true)
+    _tooltips.AddInfoTooltip(updateBtn, _data.strings.tooltips.inventoryTabUpdate)
+
+    _frame.hideEmptyBtn = CreateFrame("Button", nil, _frame)
+    local hideEmptyBtn = _frame.hideEmptyBtn
+    --hideEmptyBtn:SetFrameStrata("DIALOG")
+    hideEmptyBtn:SetFrameLevel(6)
+    hideEmptyBtn:SetPoint("TOPLEFT",  32, 0)
+    hideEmptyBtn:SetSize(32,32)
+    hideEmptyBtn:SetHighlightTexture(_data.textures.updateBotsHi)
+    hideEmptyBtn:SetNormalTexture(_data.textures.hideEmptyBtnUp)
+    hideEmptyBtn:SetScript("OnClick", function(self, button, down)
+        _cfg.inventory.hideEmptySlots = not _cfg.inventory.hideEmptySlots
+        if _activeBagTab then
+            _activeBagTab:Refresh(PlayerbotsPanel.selectedBot)
+        end
+        PlaySound("GAMEGENERICBUTTONPRESS")
+    end)
+    hideEmptyBtn:EnableMouse(true)
+    _tooltips.AddInfoTooltip(hideEmptyBtn, _data.strings.tooltips.inventoryTabHideEmptySlots)
+
+    _frame.tradeBtn = CreateFrame("Button", nil, _frame)
+    local tradeBtn = _frame.tradeBtn
+    --tradeBtn:SetFrameStrata("DIALOG")
+    tradeBtn:SetFrameLevel(6)
+    tradeBtn:SetPoint("TOPLEFT", 64, 0)
+    tradeBtn:SetSize(32,32)
+    tradeBtn:SetHighlightTexture(_data.textures.updateBotsHi)
+    tradeBtn:SetNormalTexture(_data.textures.tradeBtnUp)
+    tradeBtn:SetPushedTexture(_data.textures.tradeBtnDown)
+    tradeBtn:SetScript("OnClick", function(self, button, down)
+        if PlayerbotsPanel.isTrading then
+            CloseTrade()
+        else
+            InitiateTrade(PlayerbotsPanel.selectedBot.name) 
+        end
+        --PlaySound("GAMEGENERICBUTTONPRESS")
+    end)
+    tradeBtn:EnableMouse(true)
+    _tooltips.AddInfoTooltip(tradeBtn, _data.strings.tooltips.inventoryTabTradeBtn)
+
+    _frame.useBtn = CreateFrame("Button", nil, _frame)
+    local useBtn = _frame.useBtn
+    --useBtn:SetFrameStrata("DIALOG")
+    useBtn:SetFrameLevel(6)
+    useBtn:SetPoint("TOPLEFT",   96, 0)
+    useBtn:SetSize(32,32)
+    useBtn:SetHighlightTexture(_data.textures.updateBotsHi)
+    useBtn:SetNormalTexture(_data.textures.useBtnUp)
+    useBtn:SetPushedTexture(_data.textures.useBtnDown)
+    --useBtn:SetScript("OnClick", function(self, button, down) end)
+    useBtn:EnableMouse(true)
+    _tooltips.AddInfoTooltip(useBtn, _data.strings.tooltips.inventoryTabUseBtn)
+
+    _frame.helpIcon = CreateFrame("Frame", nil, _frame)
+    local helpIcon = _frame.helpIcon
+    helpIcon:SetFrameLevel(6)
+    helpIcon:Show()
+    helpIcon:SetPoint("TOPLEFT", 128, -8)
+    helpIcon:SetSize(16, 16)
+    helpIcon:EnableMouse(true)
+
+    helpIcon.tex = helpIcon:CreateTexture(nil, "OVERLAY")
+    helpIcon.tex:SetAllPoints(helpIcon)
+    helpIcon.tex:SetTexture("Interface\\GossipFrame\\IncompleteQuestIcon.blp")
+    _tooltips.AddInfoTooltip(helpIcon, _data.strings.tooltips.inventoryTabHelp)
+
     PlayerbotsPanel.events.onBotSelectionChanged:Add(HandleSelectionChange)
 end
 
@@ -158,15 +302,15 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
     -- create internal frame
     local width = _frame:GetWidth()
     local height = _frame:GetHeight()
-    local iframe = CreateFrame("Frame", nil, _frame)
+    local iframe = CreateFrame("Frame", "pp_bagframe_" .. tostring(bagtype), _frame)
     iframe.bagtype = bagtype
     iframe:SetPoint("TOPLEFT", 0, 0)
     iframe:SetSize(width, height)
-    iframe:SetFrameStrata("DIALOG")
-    iframe:SetFrameLevel(140)
+    --iframe:SetFrameStrata("DIALOG")
+    iframe:SetFrameLevel(3)
     -- create top bar frame
-    iframe.topbar = CreateFrame("Frame", nil, iframe)
-    iframe.topbar:SetFrameLevel(145)
+    iframe.topbar = CreateFrame("Frame", "pp_invtab_topbar", iframe)
+    iframe.topbar:SetFrameLevel(5)
     iframe.topbar:SetPoint("TOPLEFT")
     iframe.topbar:SetSize(width, topBarHeight)
 
@@ -180,12 +324,12 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
     _scrollBarId = _scrollBarId + 1
     local bagsframe = CreateFrame("ScrollFrame", scrollBarName, iframe, "UIPanelScrollFrameTemplate")--CreateFrame("Frame", nil, iframe)
     iframe.bagsframe = bagsframe
-    bagsframe:SetFrameLevel(144)
+    bagsframe:SetFrameLevel(4)
     bagsframe:SetPoint("TOPLEFT", 0, -topBarHeight)
     bagsframe:SetSize(width - 14, height - topBarHeight - 5)
     bagsframe.scrollbackground = CreateFrame("Frame", nil, bagsframe)
-    bagsframe.scrollbackground:SetFrameStrata("DIALOG")
-    bagsframe.scrollbackground:SetFrameLevel(100)
+    --bagsframe.scrollbackground:SetFrameStrata("DIALOG")
+    bagsframe.scrollbackground:SetFrameLevel(3)
     bagsframe.scrollbackground:SetSize(18, 330)
     bagsframe.scrollbackground:SetPoint("TOPRIGHT", iframe.bagsframe, 16, 2)
     _util.SetBackdrop(iframe.bagsframe.scrollbackground, _data.ROOT_PATH .. "textures\\inventory_scroll.tga")
@@ -201,50 +345,7 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
     iframe.itemslots = {}
     iframe.itemSlotsCount = 0
 
-    iframe.updateBagsBtn = CreateFrame("Button", nil, iframe.topbar)
-    local updateBtn = iframe.updateBagsBtn
-    updateBtn:SetFrameStrata("DIALOG")
-    updateBtn:SetFrameLevel(1000)
-    updateBtn:SetPoint("TOPLEFT", iframe.topbar,  0, 0)
-    updateBtn:SetSize(32,32)
-    updateBtn:SetNormalTexture(_data.textures.updateBotsUp)
-    updateBtn:SetPushedTexture(_data.textures.updateBotsDown)
-    updateBtn:SetHighlightTexture(_data.textures.updateBotsHi)
-    updateBtn:SetScript("OnClick", function(self, button, down)
-        _broker:StartQuery(QUERY_TYPE.INVENTORY, PlayerbotsPanel.selectedBot)
-    end)
-    updateBtn:EnableMouse(true)
-    _tooltips.AddInfoTooltip(updateBtn, _data.strings.tooltips.inventoryTabUpdate)
-
-    iframe.hideEmptyBtn = CreateFrame("Button", nil, iframe.topbar)
-    local hideEmptyBtn = iframe.hideEmptyBtn
-    hideEmptyBtn:SetFrameStrata("DIALOG")
-    hideEmptyBtn:SetFrameLevel(1000)
-    hideEmptyBtn:SetPoint("TOPLEFT", iframe.topbar,  32, 0)
-    hideEmptyBtn:SetSize(32,32)
-    hideEmptyBtn:SetHighlightTexture(_data.textures.updateBotsHi)
-    hideEmptyBtn:SetNormalTexture(_data.textures.hideEmptyBtnUp)
-    hideEmptyBtn:SetScript("OnClick", function(self, button, down)
-        _cfg.inventory.hideEmptySlots = not _cfg.inventory.hideEmptySlots
-        if _activeBagTab then
-            _activeBagTab:Refresh(PlayerbotsPanel.selectedBot)
-        end
-    end)
-    hideEmptyBtn:EnableMouse(true)
-    _tooltips.AddInfoTooltip(hideEmptyBtn, _data.strings.tooltips.inventoryTabHideEmptySlots)
-
-    iframe.helpIcon = CreateFrame("Frame", nil, iframe)
-    local helpIcon = iframe.helpIcon
-    helpIcon:SetFrameLevel(1000)
-    helpIcon:Show()
-    helpIcon:SetPoint("TOPLEFT", 64, -8)
-    helpIcon:SetSize(16, 16)
-    helpIcon:EnableMouse(true)
-
-    helpIcon.tex = helpIcon:CreateTexture(nil, "OVERLAY")
-    helpIcon.tex:SetAllPoints(helpIcon)
-    helpIcon.tex:SetTexture("Interface\\GossipFrame\\IncompleteQuestIcon.blp")
-    _tooltips.AddInfoTooltip(helpIcon, _data.strings.tooltips.inventoryTabHelp)
+    
 
     local function CreateTotalFreeSlotsText( x)
         iframe.totalFreeSlotsText = iframe.topbar:CreateFontString(nil, "ARTWORK", "NumberFontNormal")
@@ -261,7 +362,7 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
         for i=0, numSlots do
             local bagSlot = CreateBagSlot(iframe, 24, i, nil)
             bagSlot:SetPoint("TOPRIGHT", - (26 * (i)), -4)
-            bagSlot:SetFrameLevel(150)
+            bagSlot:SetFrameLevel(6)
             bagSlot.showBagFreeSlots = true
             iframe.bagslots[i] = bagSlot
             bagSlot.bgTex:SetTexture("Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag.blp")
@@ -280,7 +381,7 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
         for i=1, numSlots do
             local bagSlot = CreateBagSlot(iframe, 24, i, nil)
             bagSlot:SetPoint("TOPRIGHT", offset - (4 + (26 * (i) * -1)), -4)
-            bagSlot:SetFrameLevel(150)
+            bagSlot:SetFrameLevel(6)
             bagSlot.showBagFreeSlots = true
 
             local actualId = 0 -- store the bags using actual ContainerID 
@@ -307,7 +408,7 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
 
     iframe.Refresh = function (self, bot)
         if not bot then return end
-        local hideEmptyBtn = self.hideEmptyBtn
+        local hideEmptyBtn = _frame.hideEmptyBtn
         if _cfg.inventory.hideEmptySlots then
             hideEmptyBtn:SetNormalTexture(_data.textures.hideEmptyBtnDown)
         else
@@ -318,7 +419,7 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
         local bagslots = self.bagslots
         local itemslots = self.itemslots
 
-        for i=0, self.itemSlotsCount do -- release used slots
+        for i=0, self.itemSlotsCount-1 do -- release used slots
             local slot = itemslots[i]
             _pool_itemSlots:Release(slot)
             itemslots[i] = nil
@@ -332,7 +433,7 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
             if bagSlot then
                 bagSlot.itemStart = slotcount
             end
-            local step = 35
+            local stepPixels = 35
             local hideEmtpy = _cfg.inventory.hideEmptySlots
             for i=1, bag.size do
                 local item = bag.contents[i]
@@ -345,13 +446,13 @@ function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype)
                     local y = _floor(slotcount / _slotsPerRow)
                     slot:Show()
                     slot:SetParent(self.bagsframe.scroll)
-                    slot:SetPoint("TOPLEFT", x * step, y * step * -1)
+                    slot:SetPoint("TOPLEFT", x * stepPixels, y * stepPixels * -1)
                     slot:SetItem(item)
                     slotcount = slotcount + 1
                 end
             end
             if bagSlot then
-                bagSlot.itemEnd = slotcount
+                bagSlot.itemEnd = slotcount - 1
             end
         end
 

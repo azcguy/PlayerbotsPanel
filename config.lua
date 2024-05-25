@@ -1,6 +1,10 @@
 PlayerbotsPanelConfig = {}
 local _cfg = PlayerbotsPanelConfig
 
+-- general
+_cfg.panelStrata = "HIGH"
+
+-- dev
 _cfg.debugLevel = 2
 
 -- BROKER
