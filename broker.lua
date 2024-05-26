@@ -33,7 +33,10 @@ local _globalCallbacks = {} -- callbacks called for ANY bot
 
 -- UPDATED_STATUS (bot, status)                 // Online/offline/party
 CALLBACK_TYPE.STATUS_CHANGED = {}
--- UPDATED_STATUS (bot, status)                 // Class, Spec, Level, Experience, Location, 
+-- (gold, silver, copper)
+CALLBACK_TYPE.MONEY_CHANGED = {}
+-- (currencyItemID, count)
+CALLBACK_TYPE.CURRENCY_CHANGED = {}
 CALLBACK_TYPE.LEVEL_CHANGED = {}
 CALLBACK_TYPE.EXPERIENCE_CHANGED = {}
 CALLBACK_TYPE.SPEC_DATA_CHANGED = {}
@@ -66,6 +69,15 @@ local _sendAddonMsg = SendAddonMessage
 local _pow = math.pow
 local _floor = math.floor
 local _eval = _util.CompareAndReturn
+local _wipe = wipe
+
+local _evalEmptyString = function (val)
+    if val == nil then
+        return ""
+    else
+        return val
+    end
+end
 
 -- ============================================================================================
 -- SHARED BETWEEN EMU/BROKER
@@ -106,6 +118,8 @@ PlayerbotsBrokerQueryType = {}
 local QUERY_TYPE = PlayerbotsBrokerQueryType
 QUERY_TYPE.WHO        =         _strbyte("w") -- level, class, spec, location, experience and more
 QUERY_TYPE.CURRENCY   =         _strbyte("c") -- money, honor, tokens
+QUERY_TYPE.CURRENCY_MONEY=      _strbyte("g") -- subtype: money
+QUERY_TYPE.CURRENCY_OTHER=      _strbyte("c") -- subtype: other currency (with id)
 QUERY_TYPE.GEAR       =         _strbyte("g") -- only what is equipped
 QUERY_TYPE.INVENTORY  =         _strbyte("i") -- whats in the bags and bags themselves
 QUERY_TYPE.TALENTS    =         _strbyte("t") -- talents and talent points 
@@ -186,8 +200,8 @@ COMMAND.MISC           =         _strbyte("m")
 -- ============================================================================================
 -- PARSER 
 
--- This is a forward parser, call next..() methods to get value of type required by the msg
--- If the payload is null, the parser is considered broken and methods will return default non null values
+-- This is a forward parser, call next..() functions to get value of type required by the msg
+-- If the payload is null, the parser is considered broken and functions will return default non null values
 local _parser = {
     separator = MSG_SEPARATOR_BYTE,
     dotbyte = FLOAT_DOT_BYTE,
@@ -675,6 +689,43 @@ queryTemplates[QUERY_TYPE.WHO] =
     onFinalize       = function(query) end,
 }
 
+queryTemplates[QUERY_TYPE.CURRENCY] = 
+{
+    qtype = QUERY_TYPE.CURRENCY,
+    callbackType = CALLBACK_TYPE.CURRENCY_CHANGED,
+    onStart          = function(query)
+
+    end,
+    onProgress       = function(query, payload)
+        _parser:start(payload)
+        local subtype = _parser:nextCharAsByte()
+        local botCurrencies = query.bot.currency
+        if subtype == QUERY_TYPE.CURRENCY_MONEY then
+            local gold = _parser:nextInt()
+            botCurrencies.gold = gold
+            local silver = _parser:nextInt()
+            botCurrencies.silver = silver
+            local copper = _parser:nextInt()
+            botCurrencies.copper = copper
+            InvokeCallback(CALLBACK_TYPE.MONEY_CHANGED, query.bot, gold, silver, copper)
+        elseif subtype == QUERY_TYPE.CURRENCY_OTHER then
+            local currencyId = _parser:nextInt()
+            local count = _parser:nextInt()
+            local currency = botCurrencies[currencyId]
+            if not currency then
+                currency = {
+                    itemId = currencyId,
+                    count = count
+                }
+                botCurrencies[currencyId] = currency
+            end
+            InvokeCallback(CALLBACK_TYPE.CURRENCY_CHANGED, query.bot, currencyId, count)
+        end
+    end,
+    onFinalize       = function(query)
+    end,
+}
+
 queryTemplates[QUERY_TYPE.GEAR] = 
 {
     qtype = QUERY_TYPE.GEAR,
@@ -761,24 +812,46 @@ function PlayerbotsBroker:GetBotStatus(name)
         status = {}
         status.lastMessageTime = 0.0
         status.lastPing = 0.0
-        status.online = false 
+        status.online = false
         status.party = false
         _botStatus[name] = status
     end
     return status
 end
 
+local _msgBuffer = {}
+
+-- reuses a single table to construct strings
+local function BufferConcat(separator, count, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
+    local buffer = _msgBuffer
+    buffer[1] = a1
+    buffer[2] = separator
+    buffer[3] = a2
+    buffer[4] = separator
+    buffer[5] = a3
+    buffer[6] = separator
+    buffer[7] = a4
+    buffer[8] = separator
+    buffer[9] = a5
+    if count > 5 then
+        buffer[10] = separator
+        buffer[11] = a6
+        buffer[12] = separator
+        buffer[13] = a7
+        buffer[14] = separator
+        buffer[15] = a8
+        buffer[16] = separator
+        buffer[17] = a9
+        buffer[18] = separator
+        buffer[19] = a10
+    end
+    return _tconcat(buffer, nil, 1, count * 2 - 1)
+end
+
 -- ID must be uint16
 function PlayerbotsBroker:GenerateMessage(target, header, subtype, id, payload)
     if not id then id = 0 end
-    local msg = _tconcat({
-        _strchar(header),
-        MSG_SEPARATOR,
-        _strchar(subtype),
-        MSG_SEPARATOR,
-        _strformat("%03d", id),
-        MSG_SEPARATOR,
-        payload})
+    local msg = BufferConcat(MSG_SEPARATOR, 4, _strchar(header), _strchar(subtype), _strformat("%03d", id), _eval(payload, payload, ""))
     _sendAddonMsg(_prefixCode, msg, "WHISPER", target)
     _debug:LevelDebug(2, "|cff7afffb >> " .. target .. " |r "..  msg)
 end
@@ -831,7 +904,6 @@ function PlayerbotsBroker:StartQuery(qtype, bot)
     if query then
         return
     end
-
     query = PlayerbotsBroker:ConstructQuery(qtype, bot.name)
     if query then
         array[qtype] = query
@@ -934,6 +1006,7 @@ SYS_MSG_HANDLERS[SYS_MSG_TYPE.HANDSHAKE] = function(id,payload, bot, status)
     end
     PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.HANDSHAKE)
     PlayerbotsBroker:StartQuery(QUERY_TYPE.WHO, bot)
+    PlayerbotsBroker:StartQuery(QUERY_TYPE.CURRENCY, bot)
 end
 
 SYS_MSG_HANDLERS[SYS_MSG_TYPE.PING] = function(id,payload, bot, status)
@@ -988,7 +1061,32 @@ REP_MSG_HANDLERS[REPORT_TYPE.ITEM_EQUIPPED] = function(id,payload,bot,status)
         InvokeCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, bot, slotNum)
     end
 end
-REP_MSG_HANDLERS[REPORT_TYPE.CURRENCY] = function(id,payload,bot,status) end
+REP_MSG_HANDLERS[REPORT_TYPE.CURRENCY] = function(id,payload,bot,status) 
+    _parser:start(payload)
+    local subtype = _parser:nextCharAsByte()
+    local botCurrencies = bot.currency
+    if subtype == QUERY_TYPE.CURRENCY_MONEY then
+        local gold = _parser:nextInt()
+        botCurrencies.gold = gold
+        local silver = _parser:nextInt()
+        botCurrencies.silver = silver
+        local copper = _parser:nextInt()
+        botCurrencies.copper = copper
+        InvokeCallback(CALLBACK_TYPE.MONEY_CHANGED, bot, gold, silver, copper)
+    elseif subtype == QUERY_TYPE.CURRENCY_OTHER then
+        local currencyId = _parser:nextInt()
+        local count = _parser:nextInt()
+        local currency = botCurrencies[currencyId]
+        if not currency then
+            currency = {
+                itemId = currencyId,
+                count = count
+            }
+            botCurrencies[currencyId] = currency
+        end
+        InvokeCallback(CALLBACK_TYPE.CURRENCY_CHANGED, bot, currencyId, count)
+    end
+end
 REP_MSG_HANDLERS[REPORT_TYPE.INVENTORY] = function(id,payload,bot,status) 
     _parser:start(payload)
     local subtype = _parser:nextChar()
@@ -1089,12 +1187,16 @@ function PlayerbotsBroker:GetQueriesArray(name)
     return array
 end
 
-function PlayerbotsBroker:GenerateCommand(bot, cmd, subcmd, arg2, arg3, arg4)
-    PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.COMMAND, cmd, 0, _tconcat({ _strchar(subcmd), arg2, arg3, arg4}, MSG_SEPARATOR))
+function PlayerbotsBroker:GenerateCommand(bot, cmd, subcmd, arg1, arg2, arg3)
+    local count = 1
+    if arg1 then count = count + 1 end
+    if arg2 then count = count + 1 end
+    if arg3 then count = count + 1 end
+    local payload = BufferConcat(MSG_SEPARATOR, count, _strchar(subcmd), arg1, arg2, arg3)
+    PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.COMMAND, cmd, 0, payload)
 end
 
 function PlayerbotsBroker:GenerateQueryMsg(query, payload)
-    --_debug:LevelDebug(2, "generating query: ", query.bot.name, MSG_HEADER.QUERY, query.qtype, query.id, payload)
     PlayerbotsBroker:GenerateMessage(query.bot.name, MSG_HEADER.QUERY, query.qtype, query.id, payload)
 end
 
