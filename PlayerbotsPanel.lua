@@ -475,9 +475,10 @@ local function UpdateGearSlot(bot, slotNum)
 end
 
 
-function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
+function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex, isEquipSlot)
     local slot =  CreateFrame("Button", "pp_slot", frame)
     slot.id = id
+    slot.isEquipSlot = isEquipSlot
     slot.onClick = _util.CreateEvent()
     slot.onEnter = _util.CreateEvent()
     slot.onLeave = _util.CreateEvent()
@@ -495,31 +496,33 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
             _tooltips.tooltip:SetHyperlink(self.item.link)
 
             -- compare tooltips with currently equipped
-            local cache = _itemCache.GetItemCache(item.link)
-            if cache and not cache.updating then
-                local equipSlot = cache.equipSlot
-                if equipSlot and equipSlot <= 19 and equipSlot >= 0 then
-                    local bot = PlayerbotsPanel.selectedBot
-                    if bot then
-                        local equipped1 = bot.items[equipSlot]
-                        if equipped1 and equipped1.link then
-                            _tooltips.tooltipCompare1:SetOwner(_tooltips.tooltip, "ANCHOR_NONE")
-                            _tooltips.tooltipCompare1:SetPoint("TOPRIGHT", _tooltips.tooltip, "TOPLEFT")
-                            _tooltips.tooltipCompare1:SetHyperlink(equipped1.link)
-                        end
-
-                        local associatedSlot = _itemCache.associatedSlots[equipSlot]
-                        if associatedSlot then
-                            local equipped2 = bot.items[associatedSlot]
-                            if equipped2 and equipped2.link then
-                                _tooltips.tooltipCompare2:SetOwner(_tooltips.tooltipCompare1, "ANCHOR_NONE")
-                                _tooltips.tooltipCompare2:SetPoint("TOPRIGHT", _tooltips.tooltipCompare1, "TOPLEFT")
-                                _tooltips.tooltipCompare2:SetHyperlink(equipped2.link)
+            if not self.isEquipSlot then
+                local cache = _itemCache.GetItemCache(item.link)
+                if cache and not cache.updating then
+                    local equipSlot = cache.equipSlot
+                    if equipSlot and equipSlot <= 19 and equipSlot >= 0 then
+                        local bot = PlayerbotsPanel.selectedBot
+                        if bot then
+                            local equipped1 = bot.items[equipSlot]
+                            if equipped1 and equipped1.link then
+                                _tooltips.tooltipCompare1:SetOwner(_tooltips.tooltip, "ANCHOR_NONE")
+                                _tooltips.tooltipCompare1:SetPoint("TOPRIGHT", _tooltips.tooltip, "TOPLEFT")
+                                _tooltips.tooltipCompare1:SetHyperlink(equipped1.link)
+                            end
+                        
+                            local associatedSlot = _itemCache.associatedSlots[equipSlot]
+                            if associatedSlot then
+                                local equipped2 = bot.items[associatedSlot]
+                                if equipped2 and equipped2.link then
+                                    _tooltips.tooltipCompare2:SetOwner(_tooltips.tooltipCompare1, "ANCHOR_NONE")
+                                    _tooltips.tooltipCompare2:SetPoint("TOPRIGHT", _tooltips.tooltipCompare1, "TOPLEFT")
+                                    _tooltips.tooltipCompare2:SetHyperlink(equipped2.link)
+                                end
                             end
                         end
                     end
                 end
-            end
+            end 
 
             _util.SetVertexColor(self.hitex, self.qColor)
         else
@@ -756,7 +759,7 @@ function PlayerbotsPanel:SetupGearSlot(id, x, y)
     local slots = PlayerbotsGearView.slots
     if slots[id] == nil then
         local bgTex = _data.textures.slotIDbg[id]
-        local slot = PlayerbotsPanel.CreateSlot(PlayerbotsGearView.frame, 38, id, bgTex)
+        local slot = PlayerbotsPanel.CreateSlot(PlayerbotsGearView.frame, 38, id, bgTex, true)
         slots[id] = slot 
         slot:SetPoint("TOPLEFT", x, y)
         slot.onClick:Add(function (slot, button, down)
