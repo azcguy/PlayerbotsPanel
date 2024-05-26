@@ -489,9 +489,38 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
     slot:SetScript("OnEnter", function(self, motion)
         self.hitex:Show()
         if self.updating then return end
-        if self.item ~= nil and self.item.link ~= nil then
-            _tooltips.tooltip:SetOwner(self, "ANCHOR_RIGHT")
+        local item = self.item
+        if item ~= nil and item.link ~= nil then
+            _tooltips.tooltip:SetOwner(self, "ANCHOR_LEFT")
             _tooltips.tooltip:SetHyperlink(self.item.link)
+
+            -- compare tooltips with currently equipped
+            local cache = _itemCache.GetItemCache(item.link)
+            if cache and not cache.updating then
+                local equipSlot = cache.equipSlot
+                if equipSlot and equipSlot <= 19 and equipSlot >= 0 then
+                    local bot = PlayerbotsPanel.selectedBot
+                    if bot then
+                        local equipped1 = bot.items[equipSlot]
+                        if equipped1 and equipped1.link then
+                            _tooltips.tooltipCompare1:SetOwner(_tooltips.tooltip, "ANCHOR_NONE")
+                            _tooltips.tooltipCompare1:SetPoint("TOPRIGHT", _tooltips.tooltip, "TOPLEFT")
+                            _tooltips.tooltipCompare1:SetHyperlink(equipped1.link)
+                        end
+
+                        local associatedSlot = _itemCache.associatedSlots[equipSlot]
+                        if associatedSlot then
+                            local equipped2 = bot.items[associatedSlot]
+                            if equipped2 and equipped2.link then
+                                _tooltips.tooltipCompare2:SetOwner(_tooltips.tooltipCompare1, "ANCHOR_NONE")
+                                _tooltips.tooltipCompare2:SetPoint("TOPRIGHT", _tooltips.tooltipCompare1, "TOPLEFT")
+                                _tooltips.tooltipCompare2:SetHyperlink(equipped2.link)
+                            end
+                        end
+                    end
+                end
+            end
+
             _util.SetVertexColor(self.hitex, self.qColor)
         else
             _util.SetVertexColor(self.hitex, _data.colors.defaultSlotHighlight)
@@ -503,6 +532,8 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex)
     slot:SetScript("OnLeave", function(self, motion)
         if self.updating then return end
         _tooltips.tooltip:Hide()
+        _tooltips.tooltipCompare1:Hide()
+        _tooltips.tooltipCompare2:Hide()
         _util.SetVertexColor(self.hitex, _data.colors.defaultSlotHighlight)
         self.hitex:Hide()
         if self.onLeave then

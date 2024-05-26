@@ -3,13 +3,21 @@ PlayerbotsPanelTooltips = {}
 local _tooltips = PlayerbotsPanelTooltips
 -- tooltip used for items
 _tooltips.tooltip = nil
+_tooltips.tooltipCompare1 = nil
+_tooltips.tooltipCompare2 = nil
 -- tooltip used to display help/descriptions of what buttons do
 _tooltips.tooltipInfo = nil
 
 function PlayerbotsPanelTooltips:Init(parentFrame)
     _tooltips.tooltip = CreateFrame("GameTooltip", "PlayerbotsPanelTooltip", UIParent, "GameTooltipTemplate")
     _tooltips.tooltip:SetScale(UIParent:GetScale())
+
+    _tooltips.tooltipCompare1 = CreateFrame("GameTooltip", "PlayerbotsPanelTooltipCompare1", UIParent, "GameTooltipTemplate")
+    _tooltips.tooltipCompare1:SetScale(UIParent:GetScale())
   
+    _tooltips.tooltipCompare2 = CreateFrame("GameTooltip", "PlayerbotsPanelTooltipCompare2", UIParent, "GameTooltipTemplate")
+    _tooltips.tooltipCompare2:SetScale(UIParent:GetScale())
+
     _tooltips.tooltipInfo = CreateFrame("GameTooltip", "PlayerbotsPanelTooltipInfo", UIParent, "GameTooltipTemplate")
     _tooltips.tooltipInfo:SetScale(UIParent:GetScale())
 end
