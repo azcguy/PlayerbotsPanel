@@ -12,22 +12,22 @@ local _frame = nil
 function PlayerbotsPanelTabStats:Init(tab)
     _tab = tab
     _frame = tab.innerframe
-
-    tab:CreateSideButton("Interface\\ICONS\\Spell_Nature_Strength.blp", 
+    --(self, icon, stringTooltip, name, onActivate, onDeactivate)
+    tab:CreateSubTab("Interface\\ICONS\\Spell_Nature_Strength.blp", "Stats", "Stats", 
     function ()
-    end, nil, "Stats")
+    end, nil)
 
-    tab:CreateSideButton("Interface\\ICONS\\Ability_Repair.blp", 
+    tab:CreateSubTab("Interface\\ICONS\\Ability_Repair.blp",  "Skills", "Skills", 
         function ()
-        end, nil, "Skills")
+        end, nil)
 
-    tab:CreateSideButton("Interface\\ICONS\\INV_Misc_Coin_16.blp", 
+    tab:CreateSubTab("Interface\\ICONS\\INV_Misc_Coin_16.blp", "Currencies", "Currencies", 
         function ()
-        end, nil, "Currencies")
+        end, nil)
 
-    tab:CreateSideButton("Interface\\ICONS\\Achievement_Reputation_01.blp", 
+    tab:CreateSubTab("Interface\\ICONS\\Achievement_Reputation_01.blp", "Reputation", "Reputation", 
         function ()
-        end, nil, "Reputation")
+        end, nil)
 end
 
 function PlayerbotsPanelTabStats:OnActivate(tab)

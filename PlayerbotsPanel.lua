@@ -156,9 +156,7 @@ end
 
 function PlayerbotsPanel:OnShow()
     PlaySound(_data.sounds.onAddonShow)
-    if _dbchar.lastSelectedBot then
-        PlayerbotsPanel:SetSelectedBot(_dbchar.lastSelectedBot)
-    end
+
 end
 
 function PlayerbotsPanel:OnHide()
@@ -1062,7 +1060,9 @@ function PlayerbotsPanel:CreateWindow()
     PlayerbotsPanel.botSelectorFrame:SetPoint("TOPLEFT", 10,0)
     PlayerbotsPanel.botSelectorFrame:SetWidth(PlayerbotsPanel.botSelectorParentFrame:GetWidth()-18)
     PlayerbotsPanel.botSelectorFrame:SetHeight(1) 
-
+    if _dbchar.lastSelectedBot then
+        PlayerbotsPanel:SetSelectedBot(_dbchar.lastSelectedBot)
+    end
     PlayerbotsPanel:SetupTabs()
 end
 
@@ -1553,53 +1553,75 @@ local function CreateTab(name, frame, tabNum, tabGroup)
     tab.innerframe:SetWidth(tab.outerframe:GetWidth())
     tab.innerframe:SetHeight(tab.outerframe:GetHeight())
 
-    tab.sideButtons = {}
-    tab.activeSideButton = nil
+    tab.subtabs = {}
+    tab.activeSubTab = nil
 
-    tab.SetActiveSideButton = function (self, index)
-        local sideBtn = self.sideButtons[index]
-        if not sideBtn then return end
-        if self.activeSideButton then
-            self.activeSideButton:SetButtonState("NORMAL", false)
-            if self.activeSideButton.onDeactivate then
-                self.activeSideButton.onDeactivate()
+    tab.SetSubTab = function (self, index)
+        for i=0, getn(self.subtabs) do
+            local subtab = self.subtabs[i]
+            if subtab and subtab:IsShown() then 
+                subtab.button:SetButtonState("NORMAL", false)
+                subtab.onDeactivate:Invoke(self.activeSubTab)
+                subtab:Hide()
             end
         end
-        self.activeSideButton = sideBtn
-        sideBtn:SetButtonState("PUSHED", true)
-        if sideBtn.onActivate then
+
+        self.activeSubTab = self.subtabs[index]
+        if self.activeSubTab then
+            self.activeSubTab.button:SetButtonState("PUSHED", true)
             PlaySound("INTERFACESOUND_CHARWINDOWTAB")
-            sideBtn.onActivate()
+            self.activeSubTab:Show()
+            self.activeSubTab.onActivate:Invoke(self.activeSubTab)
         end
     end
-    tab.CreateSideButton = function (self, icon, onActivate, onDeactivate, stringTooltip)
-        local sideBtn = CreateFrame("Button", "pp_tab_sidebtn", self.outerframe)
+
+    -- creates and returns a side button
+    tab.CreateSubtabButton = function (self, icon, subtab, stringTooltip)
+        local button = CreateFrame("Button", "pp_tab_sidebtn_" .. subtab.name, self.outerframe)
         local size = 54
-        sideBtn.idx = getn(tab.sideButtons) + 1
-        sideBtn.tab = self
+        button.tab = self
+        button.subtab = subtab
         
-        sideBtn:SetPoint("TOPRIGHT", self.outerframe, 65, 55 - (sideBtn.idx * (size - 4)))
-        sideBtn:SetSize(size,size)
-        sideBtn:SetNormalTexture(ROOT_PATH .. "textures\\sideTab_norm.tga")
-        sideBtn:SetHighlightTexture(ROOT_PATH .. "textures\\sideTab_hi.tga")
-        sideBtn:SetPushedTexture(ROOT_PATH .. "textures\\sideTab_push.tga")
-        sideBtn.icon = sideBtn:CreateTexture(nil, "OVERLAY", nil, -7)
-        sideBtn.icon:SetPoint("TOPLEFT", 3, -9)
-        sideBtn.icon:SetSize(37,37)
-        sideBtn.icon:SetTexture(icon)
-        sideBtn:EnableMouse(true)
-        sideBtn.onActivate = onActivate
-        sideBtn.onDeactivate = onDeactivate
-        sideBtn.stringTooltip = stringTooltip
+        button:SetPoint("TOPRIGHT", self.outerframe, 65, 55 - (subtab.idx * (size - 4)))
+        button:SetSize(size,size)
+        button:SetNormalTexture(ROOT_PATH .. "textures\\sideTab_norm.tga")
+        button:SetHighlightTexture(ROOT_PATH .. "textures\\sideTab_hi.tga")
+        button:SetPushedTexture(ROOT_PATH .. "textures\\sideTab_push.tga")
+        button.icon = button:CreateTexture(nil, "OVERLAY", nil, -7)
+        button.icon:SetPoint("TOPLEFT", 3, -9)
+        button.icon:SetSize(37,37)
+        button.icon:SetTexture(icon)
+        button:EnableMouse(true)
+        button.stringTooltip = stringTooltip
+        _tooltips.AddInfoTooltip(button, stringTooltip)
 
-        _tooltips.AddInfoTooltip(sideBtn, stringTooltip)
-
-        tinsert(self.sideButtons, sideBtn)
-
-        sideBtn:SetScript("OnClick", function(self, button, down)
-            if self.tab.activeSideButton == self then return end
-            self.tab:SetActiveSideButton(self.idx)
+        button:SetScript("OnClick", function(self, button, down)
+            if self.tab.activeSubTab == self.subtab then return end
+            self.tab:SetSubTab(self.subtab.idx)
         end)
+
+        return button
+    end
+
+    -- creates a subtab and links it to the side button
+    tab.CreateSubTab = function (self, icon, stringTooltip, name, onActivate, onDeactivate)
+        local subtab = CreateFrame("Frame", "pp_subtab_" .. name, self.innerframe) 
+        subtab.name = name
+        subtab:SetAllPoints(self.innerframe)
+        subtab:SetFrameLevel(self.innerframe:GetFrameLevel() + 1)
+        subtab.idx = getn(self.subtabs) + 1
+        subtab.onActivate = _util.CreateEvent()
+        if onActivate then
+            subtab.onActivate:Add(onActivate)
+        end
+        subtab.onDeactivate = _util.CreateEvent()
+        if onDeactivate then
+            subtab.onDeactivate:Add(onDeactivate)
+        end
+        subtab.button = self:CreateSubtabButton(icon, subtab, stringTooltip)
+
+        tinsert(self.subtabs, subtab)
+        return subtab
     end
 
     if tab.object ~= nil then
@@ -1613,9 +1635,10 @@ local function CreateTab(name, frame, tabNum, tabGroup)
             self.outerframe:Show()
             frame.activeTabLabel:SetText(tab.name)
             self.object:OnActivate(tab)
-            if not self.activeSideButton then
-                local defaultActiveSideButton = _eval(self.object.defaultActiveSideButton, self.object.defaultActiveSideButton, 1)
-                self:SetActiveSideButton(defaultActiveSideButton)
+
+            if not self.activeSubTab then
+                local defaultSubtab = _eval(self.object.defaultSubTab, self.object.defaultSubTab, 1)
+                self:SetSubTab(defaultSubtab)
             end
         end
     end
