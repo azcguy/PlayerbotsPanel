@@ -1,6 +1,6 @@
 -- this handles communication between bots and data structures / events
 PlayerbotsBroker = {}
-local _broker = PlayerbotsBroker
+local _self = PlayerbotsBroker
 local _updateHandler = PlayerbotsPanelUpdateHandler
 local _util = PlayerbotsPanelUtil
 local _bots = {}
@@ -499,14 +499,14 @@ local function GetGlobalCallbackArray(ctype)
     return array
 end
 
-function PlayerbotsBroker:RegisterGlobalCallback(ctype, callback)
+function _self:RegisterGlobalCallback(ctype, callback)
     if not ctype then return end
     if not callback then return end
     local array = GetGlobalCallbackArray(ctype)
     _tinsert(array, callback)
 end
 
-function PlayerbotsBroker:UnregisterGlobalCallback(ctype, callback)
+function _self:UnregisterGlobalCallback(ctype, callback)
     if not ctype then return end
     if not callback then return end
     local array = GetGlobalCallbackArray(ctype)
@@ -516,7 +516,7 @@ function PlayerbotsBroker:UnregisterGlobalCallback(ctype, callback)
     end
 end
 
-function PlayerbotsBroker:RegisterCallback(ctype, botName, callback)
+function _self:RegisterCallback(ctype, botName, callback)
     if not ctype then return end
     if not botName then return end
     if not callback then return end
@@ -525,7 +525,7 @@ function PlayerbotsBroker:RegisterCallback(ctype, botName, callback)
     _tinsert(array, callback)
 end
 
-function PlayerbotsBroker:UnegisterCallback(ctype, botName, callback)
+function _self:UnegisterCallback(ctype, botName, callback)
     if not ctype then return end
     if not botName then return end
     if not callback then return end
@@ -806,7 +806,7 @@ queryTemplates[QUERY_TYPE.INVENTORY] =
 ----- QUERIES END
 -----------------------------------------------------------------------------
 
-function PlayerbotsBroker:GetBotStatus(name)
+function _self:GetBotStatus(name)
     local status = _botStatus[name]
     if not status then
         status = {}
@@ -849,7 +849,7 @@ local function BufferConcat(separator, count, a1, a2, a3, a4, a5, a6, a7, a8, a9
 end
 
 -- ID must be uint16
-function PlayerbotsBroker:GenerateMessage(target, header, subtype, id, payload)
+function _self:GenerateMessage(target, header, subtype, id, payload)
     if not id then id = 0 end
     local msg = BufferConcat(MSG_SEPARATOR, 4, _strchar(header), _strchar(subtype), _strformat("%03d", id), _eval(payload, payload, ""))
     _sendAddonMsg(_prefixCode, msg, "WHISPER", target)
@@ -857,59 +857,59 @@ function PlayerbotsBroker:GenerateMessage(target, header, subtype, id, payload)
 end
 
 -- bots - reference to _dbchar.bots
-function PlayerbotsBroker:Init(bots)
+function _self:Init(bots)
     _bots = bots
-    _updateHandler:RegisterHandler(PlayerbotsBroker.OnUpdate)
+    _updateHandler:RegisterHandler(_self.OnUpdate)
 
     for name, bot in _pairs(_bots) do
-        local status = PlayerbotsBroker:GetBotStatus(bot.name)
+        local status = _self:GetBotStatus(bot.name)
         status.party = UnitInParty(bot.name) ~= nil
-        PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.PING)
+        _self:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.PING)
     end
 end
 
-function PlayerbotsBroker:OnEnable()
+function _self:OnEnable()
     for name, bot in _pairs(_bots) do
-        PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.PING)
+        _self:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.PING)
     end
 end
 
-function PlayerbotsBroker:OnDisable()
+function _self:OnDisable()
     for name, bot in _pairs(_bots) do
-        PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.LOGOUT)
+        _self:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.LOGOUT)
     end
 end
 
-function PlayerbotsBroker:OnUpdate(elapsed)
+function _self:OnUpdate(elapsed)
     local time = _updateHandler.totalTime
 
     local closeWindow = _cfg.queryCloseWindow
     for id, query in _pairs(_activeQueriesById) do
         if query ~= nil and query.lastMessageTime ~= nil then
             if query.lastMessageTime  + closeWindow < time then
-                PlayerbotsBroker:FinalizeQuery(query)
+                _self:FinalizeQuery(query)
             end
         end
     end
 end
 
-function PlayerbotsBroker:StartQuery(qtype, bot)
+function _self:StartQuery(qtype, bot)
     if not bot then return end
-    local status = PlayerbotsBroker:GetBotStatus(bot.name)
+    local status = _self:GetBotStatus(bot.name)
     if not status.online then return end -- abort query because the bot is either not available or offline
 
     _debug:LevelDebug(1, "PlayerbotsBroker:StartQuery", "QUERY_TYPE", qtype, "name", bot.name)
-    local array = PlayerbotsBroker:GetQueriesArray(bot.name)
+    local array = _self:GetQueriesArray(bot.name)
     local query = array[qtype]
     if query then
         return
     end
-    query = PlayerbotsBroker:ConstructQuery(qtype, bot.name)
+    query = _self:ConstructQuery(qtype, bot.name)
     if query then
         array[qtype] = query
         _activeQueriesById[query.id] = query
         query:onStart(query)
-        PlayerbotsBroker:GenerateQueryMsg(query, nil)
+        _self:GenerateQueryMsg(query, nil)
     end
 end
 
@@ -933,7 +933,7 @@ end
 
 local _queryPool = {}
 local _queryPoolCount = 0
-function PlayerbotsBroker:ConstructQuery(qtype, name)
+function _self:ConstructQuery(qtype, name)
     local template = queryTemplates[qtype]
     if template then
         local bot = PlayerbotsPanel:GetBot(name)
@@ -951,7 +951,7 @@ function PlayerbotsBroker:ConstructQuery(qtype, name)
         query.hasError = false
         query.opcode = QUERY_OPCODE.PROGRESS
         query.bot = bot
-        query.botStatus = PlayerbotsBroker:GetBotStatus(name)
+        query.botStatus = _self:GetBotStatus(name)
         query.id = RentQueryID()
         query.lastMessageTime = _updateHandler.totalTime
         query.onStart = template.onStart
@@ -974,12 +974,12 @@ function PlayerbotsBroker:ConstructQuery(qtype, name)
     return nil
 end
 
-function PlayerbotsBroker:FinalizeQuery(query)
+function _self:FinalizeQuery(query)
     if not query.hasError then
         query:onFinalize(query)
     end
 
-    local queries = PlayerbotsBroker:GetQueriesArray(query.bot.name)
+    local queries = _self:GetQueriesArray(query.bot.name)
     queries[query.qtype] = nil
     _activeQueriesById[query.id] = nil
     ReleaseQueryID(query.id)
@@ -989,11 +989,9 @@ function PlayerbotsBroker:FinalizeQuery(query)
     wipe(query.ctx3)
     _queryPoolCount = _queryPoolCount + 1
     _queryPool[_queryPoolCount] = query
-
-    --_debug:LevelDebug(3, "PlayerbotsBroker:FinalizeQuery", query.bot.name , queries[query.qtype],  _activeQueriesById[query.id])
 end
 
-function PlayerbotsBroker:SendWhisper(msg, name)
+function _self:SendWhisper(msg, name)
     SendChatMessage(msg, "WHISPER", nil, name)
 end
 
@@ -1004,9 +1002,9 @@ SYS_MSG_HANDLERS[SYS_MSG_TYPE.HANDSHAKE] = function(id,payload, bot, status)
         status.party = UnitInParty(bot.name) ~= nil
         InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot, status)
     end
-    PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.HANDSHAKE)
-    PlayerbotsBroker:StartQuery(QUERY_TYPE.WHO, bot)
-    PlayerbotsBroker:StartQuery(QUERY_TYPE.CURRENCY, bot)
+    _self:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.HANDSHAKE)
+    _self:StartQuery(QUERY_TYPE.WHO, bot)
+    _self:StartQuery(QUERY_TYPE.CURRENCY, bot)
 end
 
 SYS_MSG_HANDLERS[SYS_MSG_TYPE.PING] = function(id,payload, bot, status)
@@ -1116,12 +1114,12 @@ local MSG_HANDLERS = {}
 MSG_HANDLERS[MSG_HEADER.SYSTEM] = SYS_MSG_HANDLERS
 MSG_HANDLERS[MSG_HEADER.REPORT] = REP_MSG_HANDLERS
 
-function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
+function _self:CHAT_MSG_ADDON(prefix, message, channel, sender)
     if prefix == _prefixCode then 
         local bot = _bots[sender]
         if bot then
             _debug:LevelDebug(2,  "|cffb4ff29 << " .. bot.name .. " |r " .. message)
-            local status = PlayerbotsBroker:GetBotStatus(bot.name)
+            local status = _self:GetBotStatus(bot.name)
             if not status then return end
             status.lastMessageTime = _updateHandler.totalTime
             -- confirm that the message has valid format
@@ -1148,11 +1146,11 @@ function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
                             if payload and _strlen(payload) > 0 then
                                 query.onProgress(query, payload)
                             end
-                            PlayerbotsBroker:FinalizeQuery(query)
+                            _self:FinalizeQuery(query)
                         elseif subtype >= UTF8_NUM_FIRST and subtype <= UTF8_NUM_LAST then
                             query.hasError = true
                             _debug.LevelDebug(1, "Query:", query.id, " returned an error: ", query.opcode)
-                            PlayerbotsBroker:FinalizeQuery(query)
+                            _self:FinalizeQuery(query)
                         end
                     end
                 else
@@ -1171,11 +1169,11 @@ function PlayerbotsBroker:CHAT_MSG_ADDON(prefix, message, channel, sender)
     end
 end
 
-function PlayerbotsBroker:CHAT_MSG_WHISPER(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter, guid)
+function _self:CHAT_MSG_WHISPER(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter, guid)
 end
 
 -- for now the queue only allows a single query of one type to be ran at a time
-function PlayerbotsBroker:GetQueriesArray(name)
+function _self:GetQueriesArray(name)
     if not name then
         _debug:LevelDebug(2, "PlayerbotsBroker:GetQueries", "name is nil")
     end
@@ -1187,33 +1185,33 @@ function PlayerbotsBroker:GetQueriesArray(name)
     return array
 end
 
-function PlayerbotsBroker:GenerateCommand(bot, cmd, subcmd, arg1, arg2, arg3)
+function _self:GenerateCommand(bot, cmd, subcmd, arg1, arg2, arg3)
     local count = 1
     if arg1 then count = count + 1 end
     if arg2 then count = count + 1 end
     if arg3 then count = count + 1 end
     local payload = BufferConcat(MSG_SEPARATOR, count, _strchar(subcmd), arg1, arg2, arg3)
-    PlayerbotsBroker:GenerateMessage(bot.name, MSG_HEADER.COMMAND, cmd, 0, payload)
+    _self:GenerateMessage(bot.name, MSG_HEADER.COMMAND, cmd, 0, payload)
 end
 
-function PlayerbotsBroker:GenerateQueryMsg(query, payload)
-    PlayerbotsBroker:GenerateMessage(query.bot.name, MSG_HEADER.QUERY, query.qtype, query.id, payload)
+function _self:GenerateQueryMsg(query, payload)
+    _self:GenerateMessage(query.bot.name, MSG_HEADER.QUERY, query.qtype, query.id, payload)
 end
 
-function PlayerbotsBroker:DoHandshakeAfterRegistration(name)
+function _self:DoHandshakeAfterRegistration(name)
     local bot = PlayerbotsPanel:GetBot(name)
     if bot then
-        PlayerbotsBroker:GenerateMessage(name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.HANDSHAKE)
-        PlayerbotsBroker:GenerateMessage(name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.PING)
+        _self:GenerateMessage(name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.HANDSHAKE)
+        _self:GenerateMessage(name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.PING)
         _updateHandler:DelayCall(1, function ()
-            PlayerbotsBroker:StartQuery(QUERY_TYPE.WHO, bot)
+            _self:StartQuery(QUERY_TYPE.WHO, bot)
         end)
     end
 end
 
-function PlayerbotsBroker:PARTY_MEMBERS_CHANGED()
+function _self:PARTY_MEMBERS_CHANGED()
     for name, bot in pairs(_bots) do
-        local status = PlayerbotsBroker:GetBotStatus(name)
+        local status = _self:GetBotStatus(name)
         local inparty =  UnitInParty(name) ~= nil
         if inparty ~= status.party then
             status.party = inparty
@@ -1222,11 +1220,11 @@ function PlayerbotsBroker:PARTY_MEMBERS_CHANGED()
     end
 end
 
-function PlayerbotsBroker:PARTY_MEMBER_ENABLE()
+function _self:PARTY_MEMBER_ENABLE()
 
 end
 
-function PlayerbotsBroker:PARTY_MEMBER_DISABLE(id)
+function _self:PARTY_MEMBER_DISABLE(id)
     print(id)
 end
 

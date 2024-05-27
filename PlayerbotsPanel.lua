@@ -1,7 +1,8 @@
 PlayerbotsPanel = AceLibrary("AceAddon-2.0"):new("AceConsole-2.0", "AceDB-2.0", "AceHook-2.1", "AceDebug-2.0", "AceEvent-2.0")
-PlayerbotsPanel.rootPath = "Interface\\AddOns\\PlayerbotsPanel\\"
-PlayerbotsFrame = CreateFrame("Frame", "PlayerbotsPanelFrame", UIParent)
-PlayerbotsPanel:RegisterDB("PlayerbotsPanelDb", "PlayerbotsPanelDbPerChar")
+local _self = PlayerbotsPanel
+_self.rootPath = "Interface\\AddOns\\PlayerbotsPanel\\"
+local _rootFrame = CreateFrame("Frame", "PlayerbotsPanelFrame", UIParent)
+_self:RegisterDB("PlayerbotsPanelDb", "PlayerbotsPanelDbPerChar")
 
 local ROOT_PATH  = PlayerbotsPanel.rootPath
 local _cfg = PlayerbotsPanelConfig
@@ -19,13 +20,13 @@ local QUERY_TYPE = PlayerbotsBrokerQueryType
 local COMMAND = PlayerbotsBrokerCommandType
 local _eval = _util.CompareAndReturn
 local _pairs = pairs
-PlayerbotsPanel.selectedBot = nil
-PlayerbotsPanel.isTrading = false
-PlayerbotsPanel.events = {}
-PlayerbotsPanel.events.onBotSelectionChanged = _util.CreateEvent()
+_self.selectedBot = nil
+_self.isTrading = false
+_self.events = {}
+_self.events.onBotSelectionChanged = _util.CreateEvent()
 
 -- references to tab objects that will be initialized, declared in corresponding files
-PlayerbotsPanel.tabInitList = 
+_self.tabInitList = 
 {
     PlayerbotsPanelTabCommands,
     PlayerbotsPanelTabInventory,
@@ -37,10 +38,10 @@ PlayerbotsPanel.tabInitList =
     PlayerbotsPanelTabTalents,
 }
 
-PlayerbotsPanel.mainTabGroup = { }
+_self.mainTabGroup = { }
 
 -- when target switches this gets populated
-PlayerbotsPanel.targetData =
+_self.targetData =
 {
     isPlayer = false,
     isRegistered = false,
@@ -53,14 +54,14 @@ PlayerbotsPanel.targetData =
 }
 
 -- chat commands to control addon itself
-PlayerbotsPanel.commands = {
+_self.commands = {
     type = 'group',
     args = {
         toggle = {
             name = "toggle",
             desc = "Toggle PlayerbotsPanel",
             type = 'execute',
-            func = function() PlayerbotsPanel:OnClick() end
+            func = function() _self:OnClick() end
         },
         clearAll = {
             name = "clearall",
@@ -100,27 +101,25 @@ PlayerbotsPanel.commands = {
     }
 }
 
-
-
-PlayerbotsGearView = {}
+local _gearView = {}
 -- root frame of the paperdoll view for bots
-local PlayerbotsGear     = CreateFrame("Frame", "PlayerbotsGear", PlayerbotsFrame)
-PlayerbotsGearView.frame = PlayerbotsGear
+local PlayerbotsGear     = CreateFrame("Frame", "PlayerbotsGear", _rootFrame)
+_gearView.frame = PlayerbotsGear
 -- renders the bot 3d model
-local ModelViewFrame     = CreateFrame("PlayerModel", "ModelViewFrame", PlayerbotsFrame)
-PlayerbotsGearView.modelView = ModelViewFrame
+local ModelViewFrame     = CreateFrame("PlayerModel", "ModelViewFrame", _rootFrame)
+_gearView.modelView = ModelViewFrame
 
-function PlayerbotsPanel:OnInitialize()
+function _self:OnInitialize()
     _debug:SetDebugging(true)
     _debug:SetDebugLevel(_cfg.debugLevel)
-    _dbchar = PlayerbotsPanel.db.char
+    _dbchar = _self.db.char
     if _dbchar.bots == nil then
       _dbchar.bots = {}
     end
     for name, bot in pairs(_dbchar.bots) do
-        PlayerbotsPanel:ValidateBotData(bot)
+        _self:ValidateBotData(bot)
     end
-    _dbaccount = PlayerbotsPanel.db.account
+    _dbaccount = _self.db.account
     _updateHandler:Init()
     _broker:Init(_dbchar.bots)
     _itemCache:Init()
@@ -141,101 +140,101 @@ function PlayerbotsPanel:OnInitialize()
 
 end
 
-function PlayerbotsPanel:OnEnable()
+function _self:OnEnable()
     self:SetDebugging(true)
 
-    PlayerbotsFrame:Show()
-    PlayerbotsPanel:UpdateBotSelector()
+    _rootFrame:Show()
+    _self:UpdateBotSelector()
     _broker:OnEnable()
 end
 
-function PlayerbotsPanel:OnDisable()
+function _self:OnDisable()
     self:SetDebugging(false)
     _broker:OnDisable()
 end
 
-function PlayerbotsPanel:OnShow()
+function _self:OnShow()
     PlaySound(_data.sounds.onAddonShow)
 
 end
 
-function PlayerbotsPanel:OnHide()
+function _self:OnHide()
     PlaySound(_data.sounds.onAddonHide)
 end
 
-function PlayerbotsPanel:Update(elapsed)
+function _self:Update(elapsed)
     _updateHandler:Update(elapsed)
 end
 
-function PlayerbotsPanel:ClosePanel()
-	HideUIPanel(PlayerbotsFrame)
+function _self:ClosePanel()
+	HideUIPanel(_rootFrame)
 end
 
-function PlayerbotsPanel:print(t)
+function _self:print(t)
     DEFAULT_CHAT_FRAME:AddMessage("PlayerbotsPanel: " .. t)
 end
 
-function PlayerbotsPanel:PLAYER_TARGET_CHANGED()
+function _self:PLAYER_TARGET_CHANGED()
     if UnitIsPlayer("target") then
-        PlayerbotsPanel:ExtractTargetData()
-        PlayerbotsPanel:SetSelectedBot(UnitName("target"))
+        _self:ExtractTargetData()
+        _self:SetSelectedBot(UnitName("target"))
     end
 end
 
-function PlayerbotsPanel:PARTY_MEMBERS_CHANGED()
+function _self:PARTY_MEMBERS_CHANGED()
     _broker:PARTY_MEMBERS_CHANGED()
 end
 
-function PlayerbotsPanel:PARTY_MEMBER_ENABLE()
+function _self:PARTY_MEMBER_ENABLE()
     _broker:PARTY_MEMBER_ENABLE()
 end
 
-function PlayerbotsPanel:PARTY_MEMBER_DISABLE()
+function _self:PARTY_MEMBER_DISABLE()
     _broker:PARTY_MEMBER_DISABLE()
 end
 
-function PlayerbotsPanel:TRADE_CLOSED()
-    PlayerbotsPanel.isTrading = false
+function _self:TRADE_CLOSED()
+    _self.isTrading = false
 end
 
-function PlayerbotsPanel:TRADE_SHOW()
-    PlayerbotsPanel.isTrading = true
+function _self:TRADE_SHOW()
+    _self.isTrading = true
 end
 
-function PlayerbotsPanel:UNIT_MODEL_CHANGED()
+function _self:UNIT_MODEL_CHANGED()
 end
 
-function PlayerbotsPanel:PLAYER_LOGIN()
+function _self:PLAYER_LOGIN()
     _broker:PLAYER_LOGIN()
 end
 
-function PlayerbotsPanel:PLAYER_LOGOUT()
+function _self:PLAYER_LOGOUT()
     _broker:PLAYER_LOGOUT()
 end
 
-function PlayerbotsPanel:CHAT_MSG_WHISPER(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter, guid)
+function _self:CHAT_MSG_WHISPER(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter, guid)
     _broker:CHAT_MSG_WHISPER(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter, guid)
 end
 
-function PlayerbotsPanel:CHAT_MSG_ADDON(prefix, message, channel, sender)
+function _self:CHAT_MSG_ADDON(prefix, message, channel, sender)
     _broker:CHAT_MSG_ADDON(prefix, message, channel, sender)
 end
 
-function PlayerbotsPanel:CHAT_MSG_SYSTEM(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter)
+function _self:CHAT_MSG_SYSTEM(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter)
     --_broker:CHAT_MSG_SYSTEM(prefix, message, channel, sender)
 end
 
-function PlayerbotsPanel:GetBot(name)
+function _self:GetBot(name)
     if _dbchar.bots ~= nil then
         return _dbchar.bots[name]
     end
     return nil
 end
 
-function PlayerbotsPanel:ExtractTargetData()
+function _self:ExtractTargetData()
     local _name = UnitName("target")
     local race, racetoken = UnitRace("target")
-    PlayerbotsPanel.targetData = {
+    _self.targetData = {
         isPlayer = UnitIsPlayer("target"),
         guid = UnitGUID("target"),
         isRegistered = _util.Where(_dbchar.bots, function(k,v)
@@ -251,7 +250,7 @@ function PlayerbotsPanel:ExtractTargetData()
 end
 
 
-function PlayerbotsPanel:CreateBotData(name)
+function _self:CreateBotData(name)
     if not name then
         error("Invalid name")
         return
@@ -264,7 +263,7 @@ function PlayerbotsPanel:CreateBotData(name)
     
     local bot = {}
     bot.name = name
-    PlayerbotsPanel:ValidateBotData(bot)
+    _self:ValidateBotData(bot)
     _dbchar.bots[name] = bot
     return bot
 end
@@ -279,7 +278,7 @@ local _pool_bagslotdata = _util.CreatePool(
         elem.count = 0
     end )
 
-function  PlayerbotsPanel.InitBag(bag, size, link)
+function  _self.InitBag(bag, size, link)
     bag.link = link
     bag.size = size
     bag.freeSlots = size
@@ -290,7 +289,7 @@ function  PlayerbotsPanel.InitBag(bag, size, link)
     wipe(bag.contents)
 end
 
-function PlayerbotsPanel.SetBagItemData(bag, slotNum, count, link)
+function _self.SetBagItemData(bag, slotNum, count, link)
     local size = bag.size
     local contents = bag.contents
     if slotNum > size then
@@ -328,19 +327,19 @@ function PlayerbotsPanel.SetBagItemData(bag, slotNum, count, link)
     end
 end
 
-function PlayerbotsPanel:CreateBagData(name, size)
+function _self:CreateBagData(name, size)
     local bag = {}
     bag.name = name
     bag.link = nil
     bag.freeSlots = size
     bag.size = size
     bag.contents = {}
-    PlayerbotsPanel.InitBag(bag, bag.size, nil)
+    _self.InitBag(bag, bag.size, nil)
     return bag
 end
 
 --- May seem overboard but it allows to adjust the layout of the data after it was already serialized
-function PlayerbotsPanel:ValidateBotData(bot)
+function _self:ValidateBotData(bot)
     local function EnsureField(owner, name, value)
         if not owner[name] then
             owner[name] = value
@@ -397,74 +396,74 @@ function PlayerbotsPanel:ValidateBotData(bot)
 
 
     EnsureField(bot, "bags", {})
-    EnsureField(bot.bags, -2, PlayerbotsPanel:CreateBagData("Keyring", 32))
-    EnsureField(bot.bags, -1, PlayerbotsPanel:CreateBagData("Bank Storage", 28)) -- bank 0
-    EnsureField(bot.bags, 0,  PlayerbotsPanel:CreateBagData("Backpack", 16)) 
-    EnsureField(bot.bags, 1,  PlayerbotsPanel:CreateBagData(nil, 0))
-    EnsureField(bot.bags, 2,  PlayerbotsPanel:CreateBagData(nil, 0))
-    EnsureField(bot.bags, 3,  PlayerbotsPanel:CreateBagData(nil, 0))
-    EnsureField(bot.bags, 4,  PlayerbotsPanel:CreateBagData(nil, 0))
-    EnsureField(bot.bags, 5,  PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 1
-    EnsureField(bot.bags, 6,  PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 2
-    EnsureField(bot.bags, 7,  PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 3
-    EnsureField(bot.bags, 8,  PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 4
-    EnsureField(bot.bags, 9,  PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 5
-    EnsureField(bot.bags, 10, PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 6
-    EnsureField(bot.bags, 11, PlayerbotsPanel:CreateBagData(nil, 0)) -- bank 7
+    EnsureField(bot.bags, -2, _self:CreateBagData("Keyring", 32))
+    EnsureField(bot.bags, -1, _self:CreateBagData("Bank Storage", 28)) -- bank 0
+    EnsureField(bot.bags, 0,  _self:CreateBagData("Backpack", 16)) 
+    EnsureField(bot.bags, 1,  _self:CreateBagData(nil, 0))
+    EnsureField(bot.bags, 2,  _self:CreateBagData(nil, 0))
+    EnsureField(bot.bags, 3,  _self:CreateBagData(nil, 0))
+    EnsureField(bot.bags, 4,  _self:CreateBagData(nil, 0))
+    EnsureField(bot.bags, 5,  _self:CreateBagData(nil, 0)) -- bank 1
+    EnsureField(bot.bags, 6,  _self:CreateBagData(nil, 0)) -- bank 2
+    EnsureField(bot.bags, 7,  _self:CreateBagData(nil, 0)) -- bank 3
+    EnsureField(bot.bags, 8,  _self:CreateBagData(nil, 0)) -- bank 4
+    EnsureField(bot.bags, 9,  _self:CreateBagData(nil, 0)) -- bank 5
+    EnsureField(bot.bags, 10, _self:CreateBagData(nil, 0)) -- bank 6
+    EnsureField(bot.bags, 11, _self:CreateBagData(nil, 0)) -- bank 7
 end
 
-function PlayerbotsPanel:RegisterByName(name)
+function _self:RegisterByName(name)
     if _dbchar.bots[name] == nil then
-        _dbchar.bots[name] = PlayerbotsPanel:CreateBotData(name)
+        _dbchar.bots[name] = _self:CreateBotData(name)
         _broker:DoHandshakeAfterRegistration(name)
     end
-    PlayerbotsPanel:UpdateBotSelector()
-    PlayerbotsPanel:SetSelectedBot(name)
+    _self:UpdateBotSelector()
+    _self:SetSelectedBot(name)
 end
 
-function PlayerbotsPanel:UnregisterByName(name)
+function _self:UnregisterByName(name)
     if _dbchar.bots[name] ~= nil then
         _dbchar.bots = _util.RemoveByKey(_dbchar.bots, name)
     end
-    PlayerbotsPanel:ClearSelection()
-    PlayerbotsPanel:UpdateBotSelector()
+    _self:ClearSelection()
+    _self:UpdateBotSelector()
 end
 
-function PlayerbotsPanel:RefreshSelection()
+function _self:RefreshSelection()
     _updateHandler:DelayCall(0.25, function()
         if self.selectedBot ~= nil then
-            PlayerbotsPanel:SetSelectedBot(self.selectedBot.name)
+            _self:SetSelectedBot(self.selectedBot.name)
         end
     end)
 end
 
-function PlayerbotsPanel:ClearSelection()
-    PlayerbotsPanel:UpdateBotSelector()
-    PlayerbotsPanel:UpdateGearView(nil)
-    PlayerbotsPanel.events.onBotSelectionChanged:Invoke(PlayerbotsPanel.selectedBot)
+function _self:ClearSelection()
+    _self:UpdateBotSelector()
+    _self:UpdateGearView(nil)
+    _self.events.onBotSelectionChanged:Invoke(_self.selectedBot)
 end
 
-function PlayerbotsPanel:SetSelectedBot(botname)
-    local bot = PlayerbotsPanel:GetBot(botname)
+function _self:SetSelectedBot(botname)
+    local bot = _self:GetBot(botname)
     if bot == nil then return end
     self.selectedBot = bot
     _dbchar.lastSelectedBot = botname
-    PlayerbotsPanel:UpdateBotSelector()
-    PlayerbotsPanel:UpdateGearView(botname)
+    _self:UpdateBotSelector()
+    _self:UpdateGearView(botname)
     PlaySound(_data.sounds.onBotSelect)
-    PlayerbotsPanel.events.onBotSelectionChanged:Invoke(bot)
+    _self.events.onBotSelectionChanged:Invoke(bot)
 end
 
-function PlayerbotsPanel:OnClick()
-    if PlayerbotsFrame:IsVisible() then
-        PlayerbotsFrame:Hide()
+function _self:OnClick()
+    if _rootFrame:IsVisible() then
+        _rootFrame:Hide()
     else 
-        PlayerbotsFrame:Show()
+        _rootFrame:Show()
     end
 end
 
 local function UpdateGearSlot(bot, slotNum)
-    local slot = PlayerbotsGearView.slots[slotNum + 1]
+    local slot = _gearView.slots[slotNum + 1]
     local item = nil
     if bot then
         item = bot.items[slotNum]
@@ -473,7 +472,7 @@ local function UpdateGearSlot(bot, slotNum)
 end
 
 
-function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex, isEquipSlot)
+function _self.CreateSlot(frame, slotSize, id, bgTex, isEquipSlot)
     local slot =  CreateFrame("Button", "pp_slot", frame)
     slot.id = id
     slot.isEquipSlot = isEquipSlot
@@ -499,7 +498,7 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex, isEquipSlot)
                 if cache and not cache.updating then
                     local equipSlot = cache.equipSlot
                     if equipSlot and equipSlot <= 19 and equipSlot >= 0 then
-                        local bot = PlayerbotsPanel.selectedBot
+                        local bot = _self.selectedBot
                         if bot then
                             local equipped1 = bot.items[equipSlot]
                             if equipped1 and equipped1.link then
@@ -689,7 +688,7 @@ function PlayerbotsPanel.CreateSlot(frame, slotSize, id, bgTex, isEquipSlot)
 end
 
 -- supports NIL as arg, will clear everything
-function PlayerbotsPanel:UpdateGearView(name)
+function _self:UpdateGearView(name)
     -- get bot 
     local clearMode = false
     if name == nil then 
@@ -697,50 +696,50 @@ function PlayerbotsPanel:UpdateGearView(name)
     end
 
     if clearMode then
-        PlayerbotsGearView.modelView:Hide()
-        PlayerbotsGearView.botName:SetText("")
-        PlayerbotsGearView.botDescription:SetText("")
-        PlayerbotsGearView.dropFrame:Hide()
+        _gearView.modelView:Hide()
+        _gearView.botName:SetText("")
+        _gearView.botDescription:SetText("")
+        _gearView.dropFrame:Hide()
         for i=1, 19 do 
             UpdateGearSlot(nil, i)
         end
     else
-        local bot = PlayerbotsPanel:GetBot(name)
+        local bot = _self:GetBot(name)
         if bot == nil then return end
         
         local status = _broker:GetBotStatus(name)
 
         if status.online  then
-            PlayerbotsGearView.modelView:Show()
+            _gearView.modelView:Show()
             if status.party then
-                PlayerbotsGearView.modelView:SetUnit(name)
-                PlayerbotsGearView.dropFrame:Show()
+                _gearView.modelView:SetUnit(name)
+                _gearView.dropFrame:Show()
             end
-            PlayerbotsGearView.modelView.bgTex:SetTexture(_data.raceData[bot.race].background)
+            _gearView.modelView.bgTex:SetTexture(_data.raceData[bot.race].background)
         else
-            PlayerbotsGearView.modelView:Hide()
+            _gearView.modelView:Hide()
         end
 
         local statusStr = "Level " .. bot.level 
-        _util.SetTextColor(PlayerbotsGearView.botDescription, _data.colors.gold)
+        _util.SetTextColor(_gearView.botDescription, _data.colors.gold)
       
         if not status.online then
             statusStr = statusStr .. " (Cached)"
-            _util.SetTextColor(PlayerbotsGearView.botDescription, _data.colors.gray)
+            _util.SetTextColor(_gearView.botDescription, _data.colors.gray)
         end
       
-        PlayerbotsGearView.botName:SetText(bot.name)
-        PlayerbotsGearView.botDescription:SetText(statusStr)
-        _util.SetTextColorToClass(PlayerbotsGearView.botName, bot.class)
+        _gearView.botName:SetText(bot.name)
+        _gearView.botDescription:SetText(statusStr)
+        _util.SetTextColorToClass(_gearView.botName, bot.class)
       
         if bot.currency then
-            PlayerbotsGearView.txtGold:SetText(bot.currency.gold)
-            PlayerbotsGearView.txtSilver:SetText(bot.currency.silver)
-            PlayerbotsGearView.txtCopper:SetText(bot.currency.copper)
+            _gearView.txtGold:SetText(bot.currency.gold)
+            _gearView.txtSilver:SetText(bot.currency.silver)
+            _gearView.txtCopper:SetText(bot.currency.copper)
         else
-            PlayerbotsGearView.txtGold:SetText("?")
-            PlayerbotsGearView.txtSilver:SetText("?")
-            PlayerbotsGearView.txtCopper:SetText("?")
+            _gearView.txtGold:SetText("?")
+            _gearView.txtSilver:SetText("?")
+            _gearView.txtCopper:SetText("?")
         end
         
         for i=1, 19 do 
@@ -749,22 +748,22 @@ function PlayerbotsPanel:UpdateGearView(name)
     end
 end
 
-function PlayerbotsPanel:SetupGearSlot(id, x, y)
-    if PlayerbotsGearView.slots == nil then
-        PlayerbotsGearView.slots = {}
+function _self:SetupGearSlot(id, x, y)
+    if _gearView.slots == nil then
+        _gearView.slots = {}
     end
 
-    local slots = PlayerbotsGearView.slots
+    local slots = _gearView.slots
     if slots[id] == nil then
         local bgTex = _data.textures.slotIDbg[id]
-        local slot = PlayerbotsPanel.CreateSlot(PlayerbotsGearView.frame, 38, id, bgTex, true)
+        local slot = _self.CreateSlot(_gearView.frame, 38, id, bgTex, true)
         slots[id] = slot 
         slot:SetPoint("TOPLEFT", x, y)
         slot.onClick:Add(function (slot, button, down)
             if slot.item and slot.item.link then
                 if not down then
                     if button == "RightButton" then
-                        _broker:GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_UNEQUIP, slot.item.link)
+                        _broker:GenerateCommand(_self.selectedBot, COMMAND.ITEM, COMMAND.ITEM_UNEQUIP, slot.item.link)
                         PlaySound("SPELLBOOKCLOSE")
                     elseif button == "LeftButton" then
                         --_broker:GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_TRADE, slot.item.link)
@@ -776,7 +775,7 @@ function PlayerbotsPanel:SetupGearSlot(id, x, y)
     end
 end
 
-function PlayerbotsPanel:DropItemSelected()
+function _self:DropItemSelected()
     if self.selectedBot then
         DropItemOnUnit(self.selectedBot.name)
         _updateHandler:DelayCall(0.25, function()
@@ -785,7 +784,7 @@ function PlayerbotsPanel:DropItemSelected()
     end
 end
 
-function PlayerbotsPanel:SetupGearFrame()
+function _self:SetupGearFrame()
     --ModelViewFrame:SetFrameStrata("DIALOG")
     ModelViewFrame:SetWidth(200)
     ModelViewFrame:SetHeight(300)
@@ -797,10 +796,10 @@ function PlayerbotsPanel:SetupGearFrame()
     PlayerbotsGear:SetWidth(219)
     PlayerbotsGear:SetHeight(362)
 
-    local gearView = PlayerbotsGearView
+    local gearView = _gearView
     
     gearView.dropFrame = CreateFrame("Button", "pp_gear_dropFrame", PlayerbotsGear)
-    local dropFrame = PlayerbotsGearView.dropFrame
+    local dropFrame = _gearView.dropFrame
     dropFrame:SetFrameLevel(6)
     dropFrame:SetPoint("TOPLEFT", 46, -32)
     dropFrame:SetWidth(123)
@@ -821,7 +820,7 @@ function PlayerbotsPanel:SetupGearFrame()
 
     dropFrame:SetScript("OnReceiveDrag", function(self)
         if CursorHasItem() then
-            PlayerbotsPanel:DropItemSelected()
+            _self:DropItemSelected()
         end
     end)
     dropFrame:Hide()
@@ -859,8 +858,8 @@ function PlayerbotsPanel:SetupGearFrame()
     ModelViewFrame.bgTex:SetWidth(ModelViewFrame:GetWidth())
     ModelViewFrame.bgTex:SetHeight(ModelViewFrame:GetHeight())
 
-    PlayerbotsGearView.updateGearButton = CreateFrame("Button", "pp_updateGearButton", PlayerbotsGear)
-    local updateGearBtn = PlayerbotsGearView.updateGearButton
+    _gearView.updateGearButton = CreateFrame("Button", "pp_updateGearButton", PlayerbotsGear)
+    local updateGearBtn = _gearView.updateGearButton
     --updateGearBtn:SetFrameStrata("DIALOG")
     updateGearBtn:SetFrameLevel(7)
     updateGearBtn:SetPoint("BOTTOMLEFT", PlayerbotsGear,  48, 43)
@@ -869,7 +868,7 @@ function PlayerbotsPanel:SetupGearFrame()
     updateGearBtn:SetPushedTexture(_data.textures.updateBotsDown)
     updateGearBtn:SetHighlightTexture(_data.textures.updateBotsHi)
     updateGearBtn:SetScript("OnClick", function(self, button, down)
-        _broker:StartQuery(QUERY_TYPE.GEAR, PlayerbotsPanel.selectedBot)
+        _broker:StartQuery(QUERY_TYPE.GEAR, _self.selectedBot)
     end)
     updateGearBtn:EnableMouse(true)
     _tooltips.AddInfoTooltip(updateGearBtn, _data.strings.tooltips.gearViewUpdateGear)
@@ -929,8 +928,8 @@ function PlayerbotsPanel:SetupGearFrame()
     _broker:RegisterGlobalCallback(CALLBACK_TYPE.MONEY_CHANGED, gearView.onCurrencyChanged)
 
 
-    PlayerbotsGearView.helpIcon = CreateFrame("Frame", nil, PlayerbotsGear)
-    local helpIcon = PlayerbotsGearView.helpIcon
+    _gearView.helpIcon = CreateFrame("Frame", nil, PlayerbotsGear)
+    local helpIcon = _gearView.helpIcon
     helpIcon:SetFrameLevel(7)
     helpIcon:Show()
     helpIcon:SetPoint("TOPRIGHT", -5, -5)
@@ -971,99 +970,99 @@ function PlayerbotsPanel:SetupGearFrame()
     local slotPosY = -32
     local slotPosX = 5
     local intOffset = 1
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_HEAD + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_HEAD + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_NECK+ intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_NECK+ intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_SHOULDER + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_SHOULDER + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_BACK + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_BACK + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_CHEST + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_CHEST + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_BODY + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_BODY + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_TABARD + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_TABARD + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_WRIST + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_WRIST + intOffset, slotPosX, slotPosY)
     -- lower row
     slotPosX = 48
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_MAINHAND + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_MAINHAND + intOffset, slotPosX, slotPosY)
     slotPosX = slotPosX + slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_OFFHAND + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_OFFHAND + intOffset, slotPosX, slotPosY)
     slotPosX = slotPosX + slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_RANGED + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_RANGED + intOffset, slotPosX, slotPosY)
     -- right column
     slotPosY = -32
     slotPosX = 172
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_HAND + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_HAND + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_WAIST + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_WAIST + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_LEGS + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_LEGS + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_FEET + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_FEET + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_FINGER1 + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_FINGER1 + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_FINGER2 + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_FINGER2 + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_TRINKET1 + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_TRINKET1 + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
-    PlayerbotsPanel:SetupGearSlot(INVSLOT_TRINKET2 + intOffset, slotPosX, slotPosY)
+    _self:SetupGearSlot(INVSLOT_TRINKET2 + intOffset, slotPosX, slotPosY)
     slotPosY = slotPosY - slotOffsetY
 
-    PlayerbotsGearView.onUpdatedEquipSlot = function(bot, slotNum)
-        if bot == PlayerbotsPanel.selectedBot then 
+    _gearView.onUpdatedEquipSlot = function(bot, slotNum)
+        if bot == _self.selectedBot then 
             UpdateGearSlot(bot, slotNum)
         end
     end
 
-    _broker:RegisterGlobalCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, PlayerbotsGearView.onUpdatedEquipSlot)
+    _broker:RegisterGlobalCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, _gearView.onUpdatedEquipSlot)
 
-    PlayerbotsGearView.onUpdateAllSlots = function (bot)
-        if PlayerbotsPanel.selectedBot and bot == PlayerbotsPanel.selectedBot then
-            PlayerbotsPanel:UpdateGearView(bot.name)
+    _gearView.onUpdateAllSlots = function (bot)
+        if _self.selectedBot and bot == _self.selectedBot then
+            _self:UpdateGearView(bot.name)
         end
     end
 
-    _broker:RegisterGlobalCallback(CALLBACK_TYPE.EQUIPMENT_CHANGED, PlayerbotsGearView.onUpdateAllSlots)
+    _broker:RegisterGlobalCallback(CALLBACK_TYPE.EQUIPMENT_CHANGED, _gearView.onUpdateAllSlots)
 end
 
-function PlayerbotsPanel:CreateWindow()
-    UIPanelWindows[PlayerbotsFrame:GetName()] = { area = "center", pushable = 0, whileDead = 1 }
-    tinsert(UISpecialFrames, PlayerbotsFrame:GetName())
-    PlayerbotsFrame:HookScript("OnUpdate", PlayerbotsPanel.Update)
-    PlayerbotsFrame:SetFrameStrata(_cfg.panelStrata)
-    PlayerbotsFrame:SetWidth(800)
-    PlayerbotsFrame:SetHeight(420)
-    PlayerbotsFrame:SetPoint("CENTER")
-    PlayerbotsFrame:SetMovable(true)
-    PlayerbotsFrame:RegisterForDrag("LeftButton")
-    PlayerbotsFrame:SetScript("OnDragStart", PlayerbotsFrame.StartMoving)
-    PlayerbotsFrame:SetScript("OnDragStop", PlayerbotsFrame.StopMovingOrSizing)
-    PlayerbotsFrame:SetScript("OnShow", PlayerbotsPanel.OnShow)
-    PlayerbotsFrame:SetScript("OnHide", PlayerbotsPanel.OnHide)
-    PlayerbotsFrame:EnableMouse(true)
+function _self:CreateWindow()
+    UIPanelWindows[_rootFrame:GetName()] = { area = "center", pushable = 0, whileDead = 1 }
+    tinsert(UISpecialFrames, _rootFrame:GetName())
+    _rootFrame:HookScript("OnUpdate", _self.Update)
+    _rootFrame:SetFrameStrata(_cfg.panelStrata)
+    _rootFrame:SetWidth(800)
+    _rootFrame:SetHeight(420)
+    _rootFrame:SetPoint("CENTER")
+    _rootFrame:SetMovable(true)
+    _rootFrame:RegisterForDrag("LeftButton")
+    _rootFrame:SetScript("OnDragStart", _rootFrame.StartMoving)
+    _rootFrame:SetScript("OnDragStop", _rootFrame.StopMovingOrSizing)
+    _rootFrame:SetScript("OnShow", _self.OnShow)
+    _rootFrame:SetScript("OnHide", _self.OnHide)
+    _rootFrame:EnableMouse(true)
 
     _tooltips:Init(UIParent)
 
-    PlayerbotsPanel:SetupGearFrame()
-    PlayerbotsPanel:AddWindowStyling(PlayerbotsFrame)
+    _self:SetupGearFrame()
+    _self:AddWindowStyling(_rootFrame)
 
-    PlayerbotsPanel.botSelectorParentFrame = CreateFrame("ScrollFrame", "botSelector", PlayerbotsFrame, "FauxScrollFrameTemplate")
-    PlayerbotsPanel.botSelectorParentFrame:SetPoint("TOPLEFT", 0, -24)
-    PlayerbotsPanel.botSelectorParentFrame:SetSize(140, 368)
+    _self.botSelectorParentFrame = CreateFrame("ScrollFrame", "botSelector", _rootFrame, "FauxScrollFrameTemplate")
+    _self.botSelectorParentFrame:SetPoint("TOPLEFT", 0, -24)
+    _self.botSelectorParentFrame:SetSize(140, 368)
     
-    PlayerbotsPanel.botSelectorFrame = CreateFrame("Frame", "pp_botselector_scroll", PlayerbotsPanel.botSelectorParentFrame)
-    PlayerbotsPanel.botSelectorParentFrame:SetScrollChild(PlayerbotsPanel.botSelectorFrame)
-    PlayerbotsPanel.botSelectorFrame:SetPoint("TOPLEFT", 10,0)
-    PlayerbotsPanel.botSelectorFrame:SetWidth(PlayerbotsPanel.botSelectorParentFrame:GetWidth()-18)
-    PlayerbotsPanel.botSelectorFrame:SetHeight(1) 
+    _self.botSelectorFrame = CreateFrame("Frame", "pp_botselector_scroll", _self.botSelectorParentFrame)
+    _self.botSelectorParentFrame:SetScrollChild(_self.botSelectorFrame)
+    _self.botSelectorFrame:SetPoint("TOPLEFT", 10,0)
+    _self.botSelectorFrame:SetWidth(_self.botSelectorParentFrame:GetWidth()-18)
+    _self.botSelectorFrame:SetHeight(1) 
     if _dbchar.lastSelectedBot then
-        PlayerbotsPanel:SetSelectedBot(_dbchar.lastSelectedBot)
+        _self:SetSelectedBot(_dbchar.lastSelectedBot)
     end
-    PlayerbotsPanel:SetupTabs()
+    _self:SetupTabs()
 end
 
 
@@ -1083,8 +1082,8 @@ local botSelectorButtons = {}
 -- secureBtn acts as unitframe, allows selection of units in game in safe manner
 -- insecureBtn is like an offline/out of reach, button that selects the CACHED bot data
 -- they swap depending on situation
-function PlayerbotsPanel:CreateBotSelectorButton(name)
-    local bot = PlayerbotsPanel:GetBot(name)
+function _self:CreateBotSelectorButton(name)
+    local bot = _self:GetBot(name)
     if not bot then
         error("FATAL: PlayerbotsPanel:CreateBotSelectorButton() missing bot!" .. name)
         return
@@ -1092,15 +1091,15 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
 
     local rootFrame = nil
     
-    rootFrame = CreateFrame("Frame", nil, PlayerbotsPanel.botSelectorFrame)
+    rootFrame = CreateFrame("Frame", nil, _self.botSelectorFrame)
     botSelectorButtons[name] = rootFrame
     rootFrame.name = name
 
     rootFrame.statusUpdateHandler = function(bot, status)
         local name = bot.name
-        PlayerbotsPanel:UpdateBotSelectorButton(name)
-        if bot == PlayerbotsPanel.selectedBot then
-            PlayerbotsPanel:UpdateGearView(name)
+        _self:UpdateBotSelectorButton(name)
+        if bot == _self.selectedBot then
+            _self:UpdateGearView(name)
         end
     end
     _broker:RegisterCallback(CALLBACK_TYPE.STATUS_CHANGED, name, rootFrame.statusUpdateHandler)
@@ -1121,7 +1120,7 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
         rootFrame.insecureBtn = CreateFrame("Button", nil, rootFrame)
         rootFrame.insecureBtn:RegisterForClicks("AnyUp", "AnyDown")
         rootFrame.insecureBtn:SetScript("OnClick", function(self, button, down)
-            PlayerbotsPanel:SetSelectedBot(bot.name)
+            _self:SetSelectedBot(bot.name)
         end)
     end
 
@@ -1145,7 +1144,7 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
         oFrame.btnAdd:SetHighlightTexture("Interface\\BUTTONS\\UI-AttributeButton-Encourage-Hilight.blp")
         oFrame.btnAdd:SetScript("OnClick", function(self, button, down)
             SendChatMessage(".playerbots bot add " .. name)
-            PlayerbotsPanel:RefreshSelection()
+            _self:RefreshSelection()
         end)
     end
 
@@ -1156,7 +1155,7 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
         _tooltips.AddInfoTooltip(oFrame.btnInvite, _data.strings.tooltips.inviteBot)
         oFrame.btnInvite:SetScript("OnClick", function(self, button, down)
             InviteUnit(name)
-            PlayerbotsPanel:RefreshSelection()
+            _self:RefreshSelection()
         end)
     end
 
@@ -1167,7 +1166,7 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
         _tooltips.AddInfoTooltip(oFrame.btnUninvite,_data.strings.tooltips.uninviteBot )
         oFrame.btnUninvite:SetScript("OnClick", function(self, button, down)
             UninviteUnit(name)
-            PlayerbotsPanel:RefreshSelection()
+            _self:RefreshSelection()
         end)
     end
 
@@ -1178,15 +1177,15 @@ function PlayerbotsPanel:CreateBotSelectorButton(name)
         _tooltips.AddInfoTooltip(oFrame.btnRemove, _data.strings.tooltips.removeBot)
         oFrame.btnRemove:SetScript("OnClick", function(self, button, down)
             SendChatMessage(".playerbots bot remove " .. name)
-            PlayerbotsPanel:RefreshSelection()
+            _self:RefreshSelection()
       end)
     end
 
     return rootFrame
 end
 
-function PlayerbotsPanel:UpdateBotSelectorButton(name)
-    local bot = PlayerbotsPanel:GetBot(name)
+function _self:UpdateBotSelectorButton(name)
+    local bot = _self:GetBot(name)
     if not bot then
         error("FATAL: PlayerbotsPanel:UpdateBotSelectorButton(name) Missing bot! ")
         return end
@@ -1312,7 +1311,7 @@ end
 -- on load
 -- when the registered bots list changes
 -- when sorting changes
-function PlayerbotsPanel:UpdateBotSelector()
+function _self:UpdateBotSelector()
     local height = 40
     local width = 125
     
@@ -1327,18 +1326,18 @@ function PlayerbotsPanel:UpdateBotSelector()
     for name, bot in pairs(_dbchar.bots) do
         local rootFrame = nil
         if botSelectorButtons[name] == nil then 
-            PlayerbotsPanel:CreateBotSelectorButton(name)
+            _self:CreateBotSelectorButton(name)
         end
         rootFrame = botSelectorButtons[name]
         rootFrame.ppidx = idx
         rootFrame.ppwidth = width
         rootFrame.ppheight = height
-        PlayerbotsPanel:UpdateBotSelectorButton(name)
+        _self:UpdateBotSelectorButton(name)
         idx = idx + 1
     end
 end
 
-function PlayerbotsPanel:AddWindowStyling(frame)
+function _self:AddWindowStyling(frame)
     local sizeFactor = 48
     local frameWidth = frame:GetWidth()
     local frameHeight = frame:GetHeight()
@@ -1417,7 +1416,7 @@ function PlayerbotsPanel:AddWindowStyling(frame)
 
     local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", 10, 6)
-    close:SetScript("OnClick", PlayerbotsPanel.ClosePanel)
+    close:SetScript("OnClick", _self.ClosePanel)
 
     local addonNameLabel = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     addonNameLabel:SetText("Playerbots Panel")
@@ -1427,25 +1426,27 @@ function PlayerbotsPanel:AddWindowStyling(frame)
 	_util.SetTextColor(addonNameLabel, _data.colors.gold)
 
     local versionLabel = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    versionLabel:SetText(PlayerbotsPanel.version)
+    versionLabel:SetText(_self.version)
 	versionLabel:SetJustifyH("RIGHT")
 	versionLabel:SetPoint("TOPRIGHT", frame, -30, -5)
 	_util.SetTextColor(versionLabel, _data.colors.gray)
 
     frame.activeTabLabel = frame:CreateFontString(nil, "ARTWORK", "WorldMapTextFont")
-    frame.activeTabLabel:SetText("TABNAME")
-	frame.activeTabLabel:SetJustifyH("CENTER")
-	frame.activeTabLabel:SetPoint("TOP", frame, 0, -3)
-    frame.activeTabLabel:SetTextHeight(14)
-    _util.SetTextColor(frame.activeTabLabel, _data.colors.gold)
+    local activeTabLabel = frame.activeTabLabel
+    activeTabLabel:SetText("TABNAME")
+	activeTabLabel:SetJustifyH("CENTER")
+	activeTabLabel:SetPoint("TOP", frame, 0, -3)
+    activeTabLabel:SetTextHeight(14)
+    _util.SetTextColor(activeTabLabel, _data.colors.gold)
 
     frame.updateBotsBtn = CreateFrame("Button", nil, frame)
-    frame.updateBotsBtn:SetPoint("TOPLEFT", -3, 3)
-    frame.updateBotsBtn:SetSize(24,24)
-    frame.updateBotsBtn:SetNormalTexture(_data.textures.updateBotsUp)
-    frame.updateBotsBtn:SetPushedTexture(_data.textures.updateBotsDown)
-    frame.updateBotsBtn:SetHighlightTexture(_data.textures.updateBotsHi)
-    frame.updateBotsBtn:SetScript("OnClick", function(self, button, down)
+    local updateBotsBtn = frame.updateBotsBtn
+    updateBotsBtn:SetPoint("TOPLEFT", -3, 3)
+    updateBotsBtn:SetSize(24,24)
+    updateBotsBtn:SetNormalTexture(_data.textures.updateBotsUp)
+    updateBotsBtn:SetPushedTexture(_data.textures.updateBotsDown)
+    updateBotsBtn:SetHighlightTexture(_data.textures.updateBotsHi)
+    updateBotsBtn:SetScript("OnClick", function(self, button, down)
         --PlayerbotsPanel:UpdateBots()
         print("This will start queries in the future, now does nothing")
     end)
@@ -1466,25 +1467,27 @@ local function CreateTabButton(name, frame, tab)
 
     local iconSize = 14
     button.frame = CreateFrame("Button", "pp_tabButton_" .. name, frame)
-    button.frame:SetText("") -- hide button built in text
-    button.text = button.frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    button.text:SetText(name)
-    local strWidth = button.text:GetWidth()
-    button.text:SetPoint("TOPRIGHT", button.frame, "TOPRIGHT")
-    button.text:SetSize(strWidth + 24, 32)
+    local buttonframe = button.frame
+
+    buttonframe:SetText("") -- hide button built in text
+    button.text = buttonframe:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local buttontext = button.text
+    buttontext:SetText(name)
+    local strWidth = buttontext:GetWidth()
+    buttontext:SetPoint("TOPRIGHT", buttonframe, "TOPRIGHT")
+    buttontext:SetSize(strWidth + 24, 32)
     local sizeX = strWidth + 42
     local padding = -8
 
-    --button.frame:SetFrameStrata("DIALOG")
-    button.frame:SetNormalTexture(ROOT_PATH .. "textures\\UI-CHARACTER-INACTIVETAB.tga")
-    button.frame:SetPushedTexture(ROOT_PATH .. "textures\\UI-CHARACTER-ACTIVETAB.tga")
-    button.frame:SetScript("OnClick", button.onclick)
-    button.frame:RegisterForClicks("AnyUp")
-    button.frame:SetSize(sizeX,32)
+    buttonframe:SetNormalTexture(ROOT_PATH .. "textures\\UI-CHARACTER-INACTIVETAB.tga")
+    buttonframe:SetPushedTexture(ROOT_PATH .. "textures\\UI-CHARACTER-ACTIVETAB.tga")
+    buttonframe:SetScript("OnClick", button.onclick)
+    buttonframe:RegisterForClicks("AnyUp")
+    buttonframe:SetSize(sizeX,32)
 
-    button.icon = button.frame:CreateTexture(nil, "OVERLAY")
+    button.icon = buttonframe:CreateTexture(nil, "OVERLAY")
     button.icon:SetSize(iconSize, iconSize)
-    button.icon:SetPoint("LEFT", button.frame, "LEFT", 12, 0)
+    button.icon:SetPoint("LEFT", buttonframe, "LEFT", 12, 0)
 
     if tab.object and tab.object.iconTex then
         button.icon:SetTexture(tab.object.iconTex)
@@ -1512,10 +1515,10 @@ local function CreateTab(name, frame, tabNum, tabGroup)
     tab.name = name
     tab.num = tabNum
     tab.group = tabGroup
-    tab.object = _util.Where(PlayerbotsPanel.tabInitList, function(k,v)
+    tab.object = _util.Where(_self.tabInitList, function(k,v)
         if v.id == name then return true end
     end)
-    tab.button = CreateTabButton(name, PlayerbotsFrame, tab)
+    tab.button = CreateTabButton(name, _rootFrame, tab)
 
 
     local bUseFullFrame = false
@@ -1525,33 +1528,34 @@ local function CreateTab(name, frame, tabNum, tabGroup)
         bUseBackground = tab.object.useBackground
     end
     tab.outerframe = CreateFrame("Frame", "pp_tab_outer_" .. name, frame)
-    --tab.outerframe:SetFrameStrata("HIGH")
-    tab.outerframe:SetFrameLevel(2)
+    local outerframe = tab.outerframe
+    outerframe:SetFrameLevel(2)
 
     if bUseFullFrame then
-        tab.outerframe:SetPoint("TOPLEFT", 169, -26)
-        tab.outerframe:SetWidth(625)
-        tab.outerframe:SetHeight(362)
+        outerframe:SetPoint("TOPLEFT", 169, -26)
+        outerframe:SetWidth(625)
+        outerframe:SetHeight(362)
     else
-        tab.outerframe:SetPoint("TOPLEFT", 390, -26)
-        tab.outerframe:SetWidth(400)
-        tab.outerframe:SetHeight(362)
+        outerframe:SetPoint("TOPLEFT", 390, -26)
+        outerframe:SetWidth(400)
+        outerframe:SetHeight(362)
     end
 
     if bUseBackground then
-        local frameBg = tab.outerframe:CreateTexture(nil)
+        local frameBg = outerframe:CreateTexture(nil)
         frameBg:SetTexture(ROOT_PATH .. "textures\\tabBg.tga")
         frameBg:SetPoint("TOPLEFT", 0, 0)
-        frameBg:SetWidth(tab.outerframe:GetWidth())
-        frameBg:SetHeight(tab.outerframe:GetHeight())
+        frameBg:SetWidth(outerframe:GetWidth())
+        frameBg:SetHeight(outerframe:GetHeight())
     end
 
     tab.innerframe = CreateFrame("Frame", "pp_tab_inner_" .. name, tab.outerframe)
+    local innerframe = tab.innerframe
     --tab.innerframe:SetFrameStrata("HIGH")
-    tab.innerframe:SetFrameLevel(3)
-    tab.innerframe:SetPoint("TOPLEFT", 0, 0)
-    tab.innerframe:SetWidth(tab.outerframe:GetWidth())
-    tab.innerframe:SetHeight(tab.outerframe:GetHeight())
+    innerframe:SetFrameLevel(3)
+    innerframe:SetPoint("TOPLEFT", 0, 0)
+    innerframe:SetWidth(outerframe:GetWidth())
+    innerframe:SetHeight(outerframe:GetHeight())
 
     tab.subtabs = {}
     tab.activeSubTab = nil
@@ -1683,15 +1687,15 @@ local function CreateTabGroup(tabsList, defaultTabName)
     end
     
     for k,v in pairs(tabsList) do
-        group.tabs[v] = CreateTab(v, PlayerbotsFrame, i, group)
+        group.tabs[v] = CreateTab(v, _rootFrame, i, group)
         i = i + 1
     end
     group.setTabActive(defaultTabName)
     return group
 end
 
-function PlayerbotsPanel:SetupTabs()
-    PlayerbotsPanel.mainTabGroup = CreateTabGroup({ "Stats", "Items", "Quests", "Spells", "Talents", "Strategies", "Commands", "Settings"}, "Items")
+function _self:SetupTabs()
+    _self.mainTabGroup = CreateTabGroup({ "Stats", "Items", "Quests", "Spells", "Talents", "Strategies", "Commands", "Settings"}, "Items")
 end
 
 

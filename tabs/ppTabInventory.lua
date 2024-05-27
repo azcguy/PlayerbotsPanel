@@ -1,12 +1,12 @@
 ---@diagnostic disable: need-check-nil, undefined-field
 PlayerbotsPanelTabInventory = {}
 local _self = PlayerbotsPanelTabInventory
-PlayerbotsPanelTabInventory.id = "Items"
-PlayerbotsPanelTabInventory.useFullFrame = false
-PlayerbotsPanelTabInventory.useBackground = true
-PlayerbotsPanelTabInventory.rightSide = false
-PlayerbotsPanelTabInventory.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures\\icon-tab-inventory.tga"
-PlayerbotsPanelTabInventory.customSound = "BAGMENUBUTTONPRESS"
+_self.id = "Items"
+_self.useFullFrame = false
+_self.useBackground = true
+_self.rightSide = false
+_self.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures\\icon-tab-inventory.tga"
+_self.customSound = "BAGMENUBUTTONPRESS"
 
 local _broker = PlayerbotsBroker
 local _updateHandler = PlayerbotsPanelUpdateHandler
@@ -109,21 +109,19 @@ local function HandleQuery_INVENTORY_CHANGED(bot)
     end
 end
 
-function PlayerbotsPanelTabInventory:OnActivate(tab)
-    _frame:Show()
+function _self:OnActivate(tab)
     _broker:RegisterGlobalCallback(PlayerbotsBrokerCallbackType.INVENTORY_CHANGED, HandleQuery_INVENTORY_CHANGED)
     _updateHandler.onMouseButton:Add(HandleGlobalMouseClick)
     SetItemToUseOnAnotherItem(nil)
 end
 
-function PlayerbotsPanelTabInventory:OnDeactivate(tab)
-    _frame:Hide()
+function _self:OnDeactivate(tab)
     _broker:UnregisterGlobalCallback(PlayerbotsBrokerCallbackType.INVENTORY_CHANGED, HandleQuery_INVENTORY_CHANGED)
     _updateHandler.onMouseButton:Remove(HandleGlobalMouseClick)
     SetItemToUseOnAnotherItem(nil)
 end
 
-function PlayerbotsPanelTabInventory:Init(tab)
+function _self:Init(tab)
     _tab = tab
     _frame = tab.innerframe
 
@@ -269,7 +267,7 @@ local function  CreateBagSlot(subtab, size, id, bgtex)
     return bagSlot
 end
 
-function  PlayerbotsPanelTabInventory.CreateBagsTab(bagtype, subtab)
+function  _self.CreateBagsTab(bagtype, subtab)
     local topBarHeight = _cfg.inventory.topbarHeight
     -- create internal frame
     local width = subtab:GetWidth()

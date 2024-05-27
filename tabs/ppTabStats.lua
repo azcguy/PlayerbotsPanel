@@ -1,21 +1,23 @@
 PlayerbotsPanelTabStats = {}
-PlayerbotsPanelTabStats.id = "Stats"
-PlayerbotsPanelTabStats.useFullFrame = false
-PlayerbotsPanelTabStats.useBackground = true
-PlayerbotsPanelTabStats.rightSide = false
-PlayerbotsPanelTabStats.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures\\icon-tab-stats.tga"
-PlayerbotsPanelTabStats.customSound = "GAMEDIALOGOPEN"
+local _self = PlayerbotsPanelTabStats
+
+_self.id = "Stats"
+_self.useFullFrame = false
+_self.useBackground = true
+_self.rightSide = false
+_self.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures\\icon-tab-stats.tga"
+_self.customSound = "GAMEDIALOGOPEN"
 
 local _tab = nil
 local _frame = nil
 
-function PlayerbotsPanelTabStats:Init(tab)
+function _self:Init(tab)
     _tab = tab
     _frame = tab.innerframe
     --(self, icon, stringTooltip, name, onActivate, onDeactivate)
     tab:CreateSubTab("Interface\\ICONS\\Spell_Nature_Strength.blp", "Stats", "Stats", 
-    function ()
-    end, nil)
+        function ()
+        end, nil)
 
     tab:CreateSubTab("Interface\\ICONS\\Ability_Repair.blp",  "Skills", "Skills", 
         function ()
@@ -30,10 +32,11 @@ function PlayerbotsPanelTabStats:Init(tab)
         end, nil)
 end
 
-function PlayerbotsPanelTabStats:OnActivate(tab)
-    _frame:Show()
+function _self:OnActivate(tab)
 end
 
-function PlayerbotsPanelTabStats:OnDeactivate(tab)
-    _frame:Hide()
+function _self:OnDeactivate(tab)
 end
+
+
+
