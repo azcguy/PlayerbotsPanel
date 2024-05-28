@@ -1691,7 +1691,7 @@ local function CreateTabGroup(tabsList, defaultTabName)
 end
 
 function _self:SetupTabs()
-    _self.mainTabGroup = CreateTabGroup({ "Stats", "Items", "Quests", "Spells", "Talents", "Strategies", "Commands", "Settings"}, "Items")
+    _self.mainTabGroup = CreateTabGroup({ "Stats", "Items", "Quests", "Spells", "Talents", "Strategies", "Commands", "Settings"}, _cfg.defaultOpenTab)
 end
 
 

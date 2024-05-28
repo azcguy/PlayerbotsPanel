@@ -5,6 +5,7 @@ _self.colors = {}
 _self.sounds = {}
 _self.strings = {}
 _self.ROOT_PATH = "Interface\\AddOns\\PlayerbotsPanel\\"
+_self.TEX_ROOT_PATH = "Interface\\AddOns\\PlayerbotsPanel\\textures\\"
 
 -----------------------------------------------------------------------------
 ----- Colors 
@@ -71,6 +72,11 @@ _self.colors.classes = {
 -----------------------------------------------------------------------------
 ----- Textures 
 -----------------------------------------------------------------------------
+---generate local texture path
+---@param texFileName string
+local function texPath(texFileName)
+    return _self.TEX_ROOT_PATH .. texFileName
+end
 
 -- placeholder and debug texture
 _self.textures.white = "Interface\\BUTTONS\\WHITE8X8.BLP" 
@@ -102,22 +108,20 @@ _self.textures.slotIDbg = {
 --  INVSLOT_RELIC           = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Relic.blp"
 }
 
-_self.textures.updateBotsUp =  _self.ROOT_PATH .. "textures\\button_update_up.tga"
-_self.textures.updateBotsDown =   _self.ROOT_PATH .. "textures\\button_update_down.tga"
-_self.textures.updateBotsHi = _self.ROOT_PATH .. "textures\\UI-RotationRight-Big-Hi.tga"
+_self.textures.updateBotsUp =  texPath("button_update_up.tga")
+_self.textures.updateBotsDown =   texPath("button_update_down.tga")
+_self.textures.updateBotsHi = texPath("UI-RotationRight-Big-Hi.tga")
 -- inventory tab
-_self.textures.inventoryTopbar = _self.ROOT_PATH .. "textures\\inventory_topbar.tga"
-_self.textures.hideEmptyBtnDown = _self.ROOT_PATH .. "textures\\inventory_button_hide_empty_down.tga"
-_self.textures.hideEmptyBtnUp = _self.ROOT_PATH .. "textures\\inventory_button_hide_empty_up.tga"
-_self.textures.tradeBtnDown = _self.ROOT_PATH .. "textures\\button_trade_down.tga"
-_self.textures.tradeBtnUp = _self.ROOT_PATH .. "textures\\button_trade_up.tga"
-_self.textures.useBtnDown = _self.ROOT_PATH .. "textures\\button_use_down.tga"
-_self.textures.useBtnUp = _self.ROOT_PATH .. "textures\\button_use_up.tga"
-_self.textures.useItemOnItemFrame = _self.ROOT_PATH .. "textures\\frame_item_use_on_item.tga"
-
-_self.textures.slotLoading = _self.ROOT_PATH .. "textures\\slot_loading.tga"
-
-
+_self.textures.inventoryTopbar = texPath("inventory_topbar.tga")
+_self.textures.hideEmptyBtnDown = texPath("inventory_button_hide_empty_down.tga")
+_self.textures.hideEmptyBtnUp = texPath("inventory_button_hide_empty_up.tga")
+_self.textures.tradeBtnDown = texPath("button_trade_down.tga")
+_self.textures.tradeBtnUp = texPath("button_trade_up.tga")
+_self.textures.useBtnDown = texPath("button_use_down.tga")
+_self.textures.useBtnUp = texPath("button_use_up.tga")
+_self.textures.useItemOnItemFrame = texPath("frame_item_use_on_item.tga")
+_self.textures.statsTabColumn = texPath("stats_tab_column.tga")
+_self.textures.slotLoading = texPath("slot_loading.tga")
 
 _self.raceData =
 {

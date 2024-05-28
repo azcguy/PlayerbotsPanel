@@ -3,6 +3,7 @@ local _self = PlayerbotsPanel.Config
 
 -- general
 _self.panelStrata = "HIGH"
+_self.defaultOpenTab = "Items"
 
 -- dev
 _self.debugLevel = 2
