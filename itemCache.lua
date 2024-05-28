@@ -1,12 +1,12 @@
-PlayerbotsPanelItemCache = {}
-local _itemCache = PlayerbotsPanelItemCache
-local _data = PlayerbotsPanelData
-local _cfg = PlayerbotsPanelConfig
-local _updateHandler = PlayerbotsPanelUpdateHandler
+PlayerbotsPanel.ItemCache = {}
+local _self = PlayerbotsPanel.ItemCache
+local _data = PlayerbotsPanel.Data
+local _cfg = PlayerbotsPanel.Config
+local _updateHandler = PlayerbotsPanel.UpdateHandler
 local _cacheTable = {}
 local _queryTooltip = CreateFrame("GameTooltip", "PlayerbotsPanelTooltip_query", UIParent, "GameTooltipTemplate")
 local _pairs = pairs
-local _util = PlayerbotsPanelUtil
+local _util = PlayerbotsPanel.Util
 -- Using big strings as keys is fine in lua, since all strings are interned by default and the table uses reference as key
 
 local _queue = {}
@@ -44,17 +44,17 @@ local _invTypeToEquipSlotTable = {
     ["INVTYPE_QUIVER"] = 20, -- 21, 22, 23
 }
 
-_itemCache.associatedSlots = {
+_self.associatedSlots = {
     [11] = 12,
     [13] = 14,
     [16] = 17
 }
 
-function PlayerbotsPanelItemCache:Init()
-    _updateHandler:RegisterHandler(PlayerbotsPanelItemCache.ProcessQueue)
+function _self:Init()
+    _updateHandler:RegisterHandler(_self.ProcessQueue)
 end
 
-function PlayerbotsPanelItemCache.ProcessQueue(elapsed)
+function _self.ProcessQueue(elapsed)
     local time = _updateHandler.totalTime
     if _nextTick < time then -- max 1 query per tick
         _nextTick = time + _tickrate
@@ -88,7 +88,7 @@ function PlayerbotsPanelItemCache.ProcessQueue(elapsed)
     end
 end
 
-function  PlayerbotsPanelItemCache.GetItemCache(itemLink)
+function  _self.GetItemCache(itemLink)
     local cache = _cacheTable[itemLink]
     if not cache then
         cache = {}
@@ -108,6 +108,6 @@ function  PlayerbotsPanelItemCache.GetItemCache(itemLink)
     return cache
 end
 
-function PlayerbotsPanelItemCache:QueryItemID(id)
+function _self:QueryItemID(id)
 	SetItemRef(('item:%d'):format(tonumber(id)))
 end

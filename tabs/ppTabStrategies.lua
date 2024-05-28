@@ -1,22 +1,23 @@
-PlayerbotsPanelTabStrategies = {}
-PlayerbotsPanelTabStrategies.id = "Strategies"
-PlayerbotsPanelTabStrategies.useFullFrame = false
-PlayerbotsPanelTabStrategies.useBackground = true
-PlayerbotsPanelTabStrategies.rightSide = false
-PlayerbotsPanelTabStrategies.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures\\icon-tab-strategies.tga"
+local _self = {}
+PlayerbotsPanel.Objects.PlayerbotsPanelTabStrategies = _self
+
+_self = {}
+_self.id = "Strategies"
+_self.useFullFrame = false
+_self.useBackground = true
+_self.rightSide = false
+_self.iconTex = PlayerbotsPanel.rootPath .. "textures\\icon-tab-strategies.tga"
 
 local _tab = nil
 local _frame = nil
 
-function PlayerbotsPanelTabStrategies:Init(tab)
+function _self:Init(tab)
     _tab = tab
     _frame = tab.innerframe
 end
 
-function PlayerbotsPanelTabStrategies:OnActivate(tab)
-    _frame:Show()
+function _self:OnActivate(tab)
 end
 
-function PlayerbotsPanelTabStrategies:OnDeactivate(tab)
-    _frame:Hide()
+function _self:OnDeactivate(tab)
 end

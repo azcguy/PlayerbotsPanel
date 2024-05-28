@@ -1,22 +1,22 @@
-PlayerbotsPanelTabSpells = {}
-PlayerbotsPanelTabSpells.id = "Spells"
-PlayerbotsPanelTabSpells.useFullFrame = false
-PlayerbotsPanelTabSpells.useBackground = true
-PlayerbotsPanelTabSpells.rightSide = false
-PlayerbotsPanelTabSpells.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures\\icon-tab-spells.tga"
+local _self = {}
+PlayerbotsPanel.Objects.PlayerbotsPanelTabSpells = _self
+
+_self.id = "Spells"
+_self.useFullFrame = false
+_self.useBackground = true
+_self.rightSide = false
+_self.iconTex = PlayerbotsPanel.rootPath .. "textures\\icon-tab-spells.tga"
 
 local _tab = nil
 local _frame = nil
 
-function PlayerbotsPanelTabSpells:Init(tab)
+function _self:Init(tab)
     _tab = tab
     _frame = tab.innerframe
 end
 
-function PlayerbotsPanelTabSpells:OnActivate(tab)
-    _frame:Show()
+function _self:OnActivate(tab)
 end
 
-function PlayerbotsPanelTabSpells:OnDeactivate(tab)
-    _frame:Hide()
+function _self:OnDeactivate(tab)
 end

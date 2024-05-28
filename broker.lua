@@ -1,13 +1,14 @@
 -- this handles communication between bots and data structures / events
 PlayerbotsBroker = {}
-local _self = PlayerbotsBroker
-local _updateHandler = PlayerbotsPanelUpdateHandler
-local _util = PlayerbotsPanelUtil
-local _bots = {}
-local _debug = AceLibrary:GetInstance("AceDebug-2.0")
-local _cfg = PlayerbotsPanelConfig
-local _prefixCode = "pb8aj2" -- just something unique from other addons
 
+local _self = PlayerbotsBroker
+local _util = PlayerbotsPanel.Util
+local _updateHandler = PlayerbotsPanel.UpdateHandler
+local _debug = PlayerbotsPanel.Debug
+local _cfg = PlayerbotsPanel.Config
+
+local _bots = {}
+local _prefixCode = "pb8aj2" -- just something unique from other addons
 -- Stores queues per query type, per bot
 -- _queries[botName][QUERY_TYPE]
 local _queries = {}
@@ -19,8 +20,6 @@ local _freeIdsCount = 0
 local _activeIdsCount = 0
 local queryTemplates = {}
 local MAX_IDS_COUNT = 999
-
-
 
 -- ============================================================================================
 -- ============== PUBLIC API

@@ -1,22 +1,22 @@
-PlayerbotsPanelTabTalents = {}
-PlayerbotsPanelTabTalents.id = "Talents"
-PlayerbotsPanelTabTalents.useFullFrame = false
-PlayerbotsPanelTabTalents.useBackground = true
-PlayerbotsPanelTabTalents.rightSide = false
-PlayerbotsPanelTabTalents.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures\\icon-tab-talents.tga"
+local _self = {}
+PlayerbotsPanel.Objects.PlayerbotsPanelTabTalents = _self
+
+_self.id = "Talents"
+_self.useFullFrame = false
+_self.useBackground = true
+_self.rightSide = false
+_self.iconTex = PlayerbotsPanel.rootPath .. "textures\\icon-tab-talents.tga"
 
 local _tab = nil
 local _frame = nil
 
-function PlayerbotsPanelTabTalents:Init(tab)
+function _self:Init(tab)
     _tab = tab
     _frame = tab.innerframe
 end
 
-function PlayerbotsPanelTabTalents:OnActivate(tab)
-    _frame:Show()
+function _self:OnActivate(tab)
 end
 
-function PlayerbotsPanelTabTalents:OnDeactivate(tab)
-    _frame:Hide()
+function _self:OnDeactivate(tab)
 end

@@ -1,39 +1,39 @@
-PlayerbotsPanelTooltips = {}
+PlayerbotsPanel.Tooltips = {}
 
-local _tooltips = PlayerbotsPanelTooltips
+local _self = PlayerbotsPanel.Tooltips
 -- tooltip used for items
-_tooltips.tooltip = nil
-_tooltips.tooltipCompare1 = nil
-_tooltips.tooltipCompare2 = nil
+_self.tooltip = nil
+_self.tooltipCompare1 = nil
+_self.tooltipCompare2 = nil
 -- tooltip used to display help/descriptions of what buttons do
-_tooltips.tooltipInfo = nil
+_self.tooltipInfo = nil
 
-function PlayerbotsPanelTooltips:Init(parentFrame)
-    _tooltips.tooltip = CreateFrame("GameTooltip", "PlayerbotsPanelTooltip", UIParent, "GameTooltipTemplate")
-    _tooltips.tooltip:SetScale(UIParent:GetScale())
+function _self:Init(parentFrame)
+    _self.tooltip = CreateFrame("GameTooltip", "PlayerbotsPanelTooltip", UIParent, "GameTooltipTemplate")
+    _self.tooltip:SetScale(UIParent:GetScale())
 
-    _tooltips.tooltipCompare1 = CreateFrame("GameTooltip", "PlayerbotsPanelTooltipCompare1", UIParent, "GameTooltipTemplate")
-    _tooltips.tooltipCompare1:SetScale(UIParent:GetScale())
+    _self.tooltipCompare1 = CreateFrame("GameTooltip", "PlayerbotsPanelTooltipCompare1", UIParent, "GameTooltipTemplate")
+    _self.tooltipCompare1:SetScale(UIParent:GetScale())
   
-    _tooltips.tooltipCompare2 = CreateFrame("GameTooltip", "PlayerbotsPanelTooltipCompare2", UIParent, "GameTooltipTemplate")
-    _tooltips.tooltipCompare2:SetScale(UIParent:GetScale())
+    _self.tooltipCompare2 = CreateFrame("GameTooltip", "PlayerbotsPanelTooltipCompare2", UIParent, "GameTooltipTemplate")
+    _self.tooltipCompare2:SetScale(UIParent:GetScale())
 
-    _tooltips.tooltipInfo = CreateFrame("GameTooltip", "PlayerbotsPanelTooltipInfo", UIParent, "GameTooltipTemplate")
-    _tooltips.tooltipInfo:SetScale(UIParent:GetScale())
+    _self.tooltipInfo = CreateFrame("GameTooltip", "PlayerbotsPanelTooltipInfo", UIParent, "GameTooltipTemplate")
+    _self.tooltipInfo:SetScale(UIParent:GetScale())
 end
 
 -- Assumes whatever is passed as target is Frame/Button etc and will override OnEnter/OnLeave
-function PlayerbotsPanelTooltips.AddInfoTooltip(target, strTooltip)
+function _self.AddInfoTooltip(target, strTooltip)
   if target == nil or strTooltip == nil then
     error("AddInfoTooltip - nil values passed")
     return
   end
 
   target:SetScript("OnEnter", function(self, motion)
-    _tooltips.tooltipInfo:SetOwner(target, "ANCHOR_BOTTOMRIGHT")
-    _tooltips.tooltipInfo:SetText(strTooltip)
+    _self.tooltipInfo:SetOwner(target, "ANCHOR_BOTTOMRIGHT")
+    _self.tooltipInfo:SetText(strTooltip)
   end)
   target:SetScript("OnLeave", function(self, motion)
-    _tooltips.tooltipInfo:Hide()
+    _self.tooltipInfo:Hide()
   end)
 end

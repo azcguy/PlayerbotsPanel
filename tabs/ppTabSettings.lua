@@ -1,16 +1,19 @@
-PlayerbotsPanelTabSettings = {}
-PlayerbotsPanelTabSettings.id = "Settings"
-PlayerbotsPanelTabSettings.useFullFrame = false
-PlayerbotsPanelTabSettings.useBackground = true
-PlayerbotsPanelTabSettings.rightSide = true
-PlayerbotsPanelTabSettings.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures\\icon-tab-settings.tga"
+local _self = {}
+PlayerbotsPanel.Objects.PlayerbotsPanelTabSettings = _self
+
+_self.id = "Settings"
+_self.useFullFrame = false
+_self.useBackground = true
+_self.rightSide = true
+_self.iconTex = PlayerbotsPanel.rootPath .. "textures\\icon-tab-settings.tga"
 
 local _tab = nil
 local _frame = nil
-local _inputRegisterByName = nil
-local _tooltips = PlayerbotsPanelTooltips
+local _tooltips = PlayerbotsPanel.Tooltips
+local _inputRegisterByName
+local _inputUnRegisterByName
 
-function PlayerbotsPanelTabSettings:Init(tab)
+function _self:Init(tab)
     _tab = tab
     _frame = tab.innerframe
 
@@ -83,10 +86,8 @@ function PlayerbotsPanelTabSettings:Init(tab)
     _inputUnRegisterByName:SetAutoFocus(false)
 end
 
-function PlayerbotsPanelTabSettings:OnActivate(tab)
-    _frame:Show()
+function _self:OnActivate(tab)
 end
 
-function PlayerbotsPanelTabSettings:OnDeactivate(tab)
-    _frame:Hide()
+function _self:OnDeactivate(tab)
 end

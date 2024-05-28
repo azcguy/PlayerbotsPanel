@@ -1,28 +1,28 @@
 ---@diagnostic disable: need-check-nil, undefined-field
-PlayerbotsPanelTabInventory = {}
-local _self = PlayerbotsPanelTabInventory
+local _self = {}
+PlayerbotsPanel.Objects.PlayerbotsPanelTabInventory = _self
+
+local _cfg = PlayerbotsPanel.Config
+local _tooltips = PlayerbotsPanel.Tooltips
+local _broker = PlayerbotsBroker
+local _updateHandler = PlayerbotsPanel.UpdateHandler
+local _data = PlayerbotsPanel.Data
+local _util = PlayerbotsPanel.Util
+local _eval = _util.CompareAndReturn
+local _floor = math.floor
+
 _self.id = "Items"
 _self.useFullFrame = false
 _self.useBackground = true
 _self.rightSide = false
-_self.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures\\icon-tab-inventory.tga"
+_self.iconTex = PlayerbotsPanel.rootPath .. "textures\\icon-tab-inventory.tga"
 _self.customSound = "BAGMENUBUTTONPRESS"
-
-local _broker = PlayerbotsBroker
-local _updateHandler = PlayerbotsPanelUpdateHandler
-local _data = PlayerbotsPanelData
-local _util = PlayerbotsPanelUtil
-local _eval = _util.CompareAndReturn
-local _floor = math.floor
-local _cfg = PlayerbotsPanelConfig
-local _tooltips = PlayerbotsPanelTooltips
 
 local QUERY_TYPE = PlayerbotsBrokerQueryType
 local COMMAND = PlayerbotsBrokerCommandType
 
 local _tab = nil
 local _frame = nil
-local _slots = {}
 local _scrollBarId = 1
 local _slotsPerRow = 11
 local _frameUseItemOnItem = {}

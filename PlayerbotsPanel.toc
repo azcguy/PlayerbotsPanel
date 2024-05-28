@@ -22,6 +22,7 @@ lib\AceLocale-2.2\AceLocale-2.2.lua
 lib\AceConsole-2.0\AceConsole-2.0.lua
 lib\AceAddon-2.0\AceAddon-2.0.lua
 lib\DewDrop-2.0\DewDrop-2.0.lua
+init.lua
 config.lua
 data.lua
 util.lua

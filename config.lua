@@ -1,19 +1,19 @@
-PlayerbotsPanelConfig = {}
-local _cfg = PlayerbotsPanelConfig
+PlayerbotsPanel.Config = {}
+local _self = PlayerbotsPanel.Config
 
 -- general
-_cfg.panelStrata = "HIGH"
+_self.panelStrata = "HIGH"
 
 -- dev
-_cfg.debugLevel = 2
+_self.debugLevel = 2
 
 -- BROKER
-_cfg.queryCloseWindow = 0.25 -- seconds
+_self.queryCloseWindow = 0.25 -- seconds
 
 -- ITEM INVENTORY TAB
-if not _cfg.inventory then _cfg.inventory = {} end
-_cfg.inventory.topbarHeight = 32
-_cfg.inventory.hideEmptySlots = true
+if not _self.inventory then _self.inventory = {} end
+_self.inventory.topbarHeight = 32
+_self.inventory.hideEmptySlots = true
 
 -- ITEM CACHE
-_cfg.itemCacheAsyncItemsPerSecond = 60
+_self.itemCacheAsyncItemsPerSecond = 60

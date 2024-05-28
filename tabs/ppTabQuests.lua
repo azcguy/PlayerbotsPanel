@@ -1,22 +1,22 @@
-PlayerbotsPanelTabQuests = {}
-PlayerbotsPanelTabQuests.id = "Quests"
-PlayerbotsPanelTabQuests.useFullFrame = false
-PlayerbotsPanelTabQuests.useBackground = true
-PlayerbotsPanelTabQuests.rightSide = false
-PlayerbotsPanelTabQuests.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures\\icon-tab-quest.tga"
+local _self = {}
+PlayerbotsPanel.Objects.PlayerbotsPanelTabQuests = _self
+
+_self.id = "Quests"
+_self.useFullFrame = false
+_self.useBackground = true
+_self.rightSide = false
+_self.iconTex = PlayerbotsPanel.rootPath .. "textures\\icon-tab-quest.tga"
 
 local _tab = nil
 local _frame = nil
 
-function PlayerbotsPanelTabQuests:Init(tab)
+function _self:Init(tab)
     _tab = tab
     _frame = tab.innerframe
 end
 
-function PlayerbotsPanelTabQuests:OnActivate(tab)
-    _frame:Show()
+function _self:OnActivate(tab)
 end
 
-function PlayerbotsPanelTabQuests:OnDeactivate(tab)
-    _frame:Hide()
+function _self:OnDeactivate(tab)
 end

@@ -1,9 +1,10 @@
-PlayerbotsPanelUtil = {}
-local _data = PlayerbotsPanelData
-local _eval = PlayerbotsPanelUtil.CompareAndReturn
+PlayerbotsPanel.Util = {}
+local _self = PlayerbotsPanel.Util
+local _data = PlayerbotsPanel.Data
+local _eval = _self.CompareAndReturn
 
 
-function  PlayerbotsPanelUtil.CompareAndReturn(eval, ifTrue, ifFalse)
+function  _self.CompareAndReturn(eval, ifTrue, ifFalse)
     if eval then
         return ifTrue
     else
@@ -11,11 +12,11 @@ function  PlayerbotsPanelUtil.CompareAndReturn(eval, ifTrue, ifFalse)
     end
 end
 
-function PlayerbotsPanelUtil.SetTextColor(text, c)
+function _self.SetTextColor(text, c)
     text:SetTextColor(c.fr, c.fg, c.fb, c.fa)
 end
 
-function PlayerbotsPanelUtil.SetVertexColor(tex, c)
+function _self.SetVertexColor(tex, c)
     if c == nil then
         c = _data.colors.red
         print("ERROR SETTING COLOR")
@@ -23,12 +24,12 @@ function PlayerbotsPanelUtil.SetVertexColor(tex, c)
     tex:SetVertexColor(c.r, c.g, c.b)
 end
 
-function PlayerbotsPanelUtil.SetTextColorToClass(text, class)
-    local c = PlayerbotsPanelUtil.CompareAndReturn(class == nil, _data.colors.white, _data.colors.classes[strupper(class)])
+function _self.SetTextColorToClass(text, class)
+    local c = _self.CompareAndReturn(class == nil, _data.colors.white, _data.colors.classes[strupper(class)])
     text:SetTextColor(c.fr, c.fg, c.fb, c.fa)
 end
 
-function PlayerbotsPanelUtil.Where(_table, predicate)
+function _self.Where(_table, predicate)
     for k,v in pairs(_table) do
         if(predicate(k,v)) then
             return _table[k]
@@ -36,7 +37,7 @@ function PlayerbotsPanelUtil.Where(_table, predicate)
     end
 end
 
-function PlayerbotsPanelUtil.FindIndex(_table, obj)
+function _self.FindIndex(_table, obj)
     local t = 1
     for k,v in pairs(_table) do
         if v == obj then
@@ -47,7 +48,7 @@ function PlayerbotsPanelUtil.FindIndex(_table, obj)
     return -1
 end
 
-function PlayerbotsPanelUtil.IndexOf(_table, predicate)
+function _self.IndexOf(_table, predicate)
     local t = 1
     for k,v in pairs(_table) do
         if(predicate(k,v)) then
@@ -59,7 +60,7 @@ function PlayerbotsPanelUtil.IndexOf(_table, predicate)
 end
 
 -- copies the table and returns a new one
-function PlayerbotsPanelUtil.RemoveByKey(_table, key)
+function _self.RemoveByKey(_table, key)
     local n = {}
     for k,v in pairs(_table) do
         if k ~= key then
@@ -69,13 +70,13 @@ function PlayerbotsPanelUtil.RemoveByKey(_table, key)
     return n
 end
 
-function PlayerbotsPanelUtil.DumpTable(_table)
-    PlayerbotsPanelUtil.Where(_table, function(k,v)
+function _self.DumpTable(_table)
+    _self.Where(_table, function(k,v)
         print(k, v)
     end)
 end
 
-function PlayerbotsPanelUtil.SetBackdrop(frame, tex, texBorder)
+function _self.SetBackdrop(frame, tex, texBorder)
 
     local insets = nil
     if texBorder then
@@ -111,7 +112,7 @@ function PlayerbotsPanelUtil.SetBackdrop(frame, tex, texBorder)
 end
 
 
-function PlayerbotsPanelUtil.CreatePool(onNew, onClear)
+function _self.CreatePool(onNew, onClear)
     local pool = {}
     pool.elems = {}
     pool.count = 0
@@ -144,7 +145,7 @@ function PlayerbotsPanelUtil.CreatePool(onNew, onClear)
     return pool
 end
 
-function PlayerbotsPanelUtil.CreateEvent()
+function _self.CreateEvent()
     local event = {}
     event.callbacks = {}
     event.Invoke = function (self, arg1, arg2, arg3, arg4)

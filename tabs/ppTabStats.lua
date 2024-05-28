@@ -1,11 +1,11 @@
-PlayerbotsPanelTabStats = {}
-local _self = PlayerbotsPanelTabStats
+local _self = {}
+PlayerbotsPanel.Objects.PlayerbotsPanelTabStats = _self
 
 _self.id = "Stats"
 _self.useFullFrame = false
 _self.useBackground = true
 _self.rightSide = false
-_self.iconTex = PlayerbotsPanelData.ROOT_PATH .. "textures\\icon-tab-stats.tga"
+_self.iconTex = PlayerbotsPanel.rootPath .. "textures\\icon-tab-stats.tga"
 _self.customSound = "GAMEDIALOGOPEN"
 
 local _tab = nil

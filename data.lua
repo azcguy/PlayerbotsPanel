@@ -1,16 +1,16 @@
-PlayerbotsPanelData = {}
-local _data = PlayerbotsPanelData
-_data.textures = {}
-_data.colors = {}
-_data.sounds = {}
-_data.strings = {}
-_data.ROOT_PATH = "Interface\\AddOns\\PlayerbotsPanel\\"
+PlayerbotsPanel.Data = {}
+local _self = PlayerbotsPanel.Data
+_self.textures = {}
+_self.colors = {}
+_self.sounds = {}
+_self.strings = {}
+_self.ROOT_PATH = "Interface\\AddOns\\PlayerbotsPanel\\"
 
 -----------------------------------------------------------------------------
 ----- Colors 
 -----------------------------------------------------------------------------
 
-function PlayerbotsPanelData.CreateColor(r,g,b,a, hex)
+function _self.CreateColor(r,g,b,a, hex)
     local color = {}
     if a == nil then a = 255 end
     color.fr = r / 255
@@ -24,7 +24,7 @@ function PlayerbotsPanelData.CreateColor(r,g,b,a, hex)
     color.hex = hex
     return color
 end
-function PlayerbotsPanelData.CreateColorF(r,g,b,a, hex)
+function _self.CreateColorF(r,g,b,a, hex)
     local color = {}
     if a == nil then a = 1 end
     color.fr = r 
@@ -39,33 +39,33 @@ function PlayerbotsPanelData.CreateColorF(r,g,b,a, hex)
     return color
 end 
 
-_data.colors.defaultSlotHighlight = {
+_self.colors.defaultSlotHighlight = {
   r = 94/255, 
   g = 147/255,
   b = 243/255
 }
 
-_data.colors.quality = {}
+_self.colors.quality = {}
 for i=0, 7 do
     local r,g,b = GetItemQualityColor(i)
-    _data.colors.quality[i] = _data.CreateColor(r,g,b)
+    _self.colors.quality[i] = _self.CreateColor(r,g,b)
 end
 
-_data.colors.white = _data.CreateColor(255,255,255,255,"#FFFFFF")
-_data.colors.gold = _data.CreateColor(255,215,0,255,"#FFD700")
-_data.colors.red = _data.CreateColor(255,0,0,255,"#FF0000")
-_data.colors.gray = _data.CreateColor(55,55,55,255,"#848484")
-_data.colors.classes = {
-    DEATHKNIGHT = _data.CreateColor(196, 30, 58, 255, "#C41E3A"),
-    DRUID = _data.CreateColor(255, 124, 10, 255, "#FF7C0A"),
-    HUNTER = _data.CreateColor(170, 211, 114, 255, "#AAD372"),
-    MAGE = _data.CreateColor(63, 199, 235, 255, "#3FC7EB"),
-    PALADIN = _data.CreateColor(244, 140, 186, 255, "#F48CBA"),
-    PRIEST = _data.CreateColor(255, 255, 255, 255, "#FFFFFF"),
-    ROGUE = _data.CreateColor(255, 244, 104, 255, "#FFF468"),
-    SHAMAN = _data.CreateColor(0, 112, 221, 255, "#0070DD"),
-    WARLOCK = _data.CreateColor(135, 136, 238, 255, "#8788EE"),
-    WARRIOR = _data.CreateColor(198, 155, 109, 255, "#C69B6D"),
+_self.colors.white = _self.CreateColor(255,255,255,255,"#FFFFFF")
+_self.colors.gold = _self.CreateColor(255,215,0,255,"#FFD700")
+_self.colors.red = _self.CreateColor(255,0,0,255,"#FF0000")
+_self.colors.gray = _self.CreateColor(55,55,55,255,"#848484")
+_self.colors.classes = {
+    DEATHKNIGHT = _self.CreateColor(196, 30, 58, 255, "#C41E3A"),
+    DRUID = _self.CreateColor(255, 124, 10, 255, "#FF7C0A"),
+    HUNTER = _self.CreateColor(170, 211, 114, 255, "#AAD372"),
+    MAGE = _self.CreateColor(63, 199, 235, 255, "#3FC7EB"),
+    PALADIN = _self.CreateColor(244, 140, 186, 255, "#F48CBA"),
+    PRIEST = _self.CreateColor(255, 255, 255, 255, "#FFFFFF"),
+    ROGUE = _self.CreateColor(255, 244, 104, 255, "#FFF468"),
+    SHAMAN = _self.CreateColor(0, 112, 221, 255, "#0070DD"),
+    WARLOCK = _self.CreateColor(135, 136, 238, 255, "#8788EE"),
+    WARRIOR = _self.CreateColor(198, 155, 109, 255, "#C69B6D"),
 }
 
 -----------------------------------------------------------------------------
@@ -73,12 +73,12 @@ _data.colors.classes = {
 -----------------------------------------------------------------------------
 
 -- placeholder and debug texture
-_data.textures.white = "Interface\\BUTTONS\\WHITE8X8.BLP" 
+_self.textures.white = "Interface\\BUTTONS\\WHITE8X8.BLP" 
 -- highlight tex for gear slot
-_data.textures.slotHi = "Interface\\Buttons\\UI-ActionButton-Border"
-_data.textures.emptySlot = "Interface\\PaperDoll\\UI-Backpack-EmptySlot.blp"
+_self.textures.slotHi = "Interface\\Buttons\\UI-ActionButton-Border"
+_self.textures.emptySlot = "Interface\\PaperDoll\\UI-Backpack-EmptySlot.blp"
 -- background tex for gear slot, array
-_data.textures.slotIDbg = {
+_self.textures.slotIDbg = {
   "Interface\\PaperDoll\\UI-PaperDoll-Slot-Ranged.blp",
   "Interface\\PaperDoll\\UI-PaperDoll-Slot-Head.blp",
   "Interface\\PaperDoll\\UI-PaperDoll-Slot-Neck.blp",
@@ -102,24 +102,24 @@ _data.textures.slotIDbg = {
 --  INVSLOT_RELIC           = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Relic.blp"
 }
 
-_data.textures.updateBotsUp =  _data.ROOT_PATH .. "textures\\button_update_up.tga"
-_data.textures.updateBotsDown =   _data.ROOT_PATH .. "textures\\button_update_down.tga"
-_data.textures.updateBotsHi = _data.ROOT_PATH .. "textures\\UI-RotationRight-Big-Hi.tga"
+_self.textures.updateBotsUp =  _self.ROOT_PATH .. "textures\\button_update_up.tga"
+_self.textures.updateBotsDown =   _self.ROOT_PATH .. "textures\\button_update_down.tga"
+_self.textures.updateBotsHi = _self.ROOT_PATH .. "textures\\UI-RotationRight-Big-Hi.tga"
 -- inventory tab
-_data.textures.inventoryTopbar = _data.ROOT_PATH .. "textures\\inventory_topbar.tga"
-_data.textures.hideEmptyBtnDown = _data.ROOT_PATH .. "textures\\inventory_button_hide_empty_down.tga"
-_data.textures.hideEmptyBtnUp = _data.ROOT_PATH .. "textures\\inventory_button_hide_empty_up.tga"
-_data.textures.tradeBtnDown = _data.ROOT_PATH .. "textures\\button_trade_down.tga"
-_data.textures.tradeBtnUp = _data.ROOT_PATH .. "textures\\button_trade_up.tga"
-_data.textures.useBtnDown = _data.ROOT_PATH .. "textures\\button_use_down.tga"
-_data.textures.useBtnUp = _data.ROOT_PATH .. "textures\\button_use_up.tga"
-_data.textures.useItemOnItemFrame = _data.ROOT_PATH .. "textures\\frame_item_use_on_item.tga"
+_self.textures.inventoryTopbar = _self.ROOT_PATH .. "textures\\inventory_topbar.tga"
+_self.textures.hideEmptyBtnDown = _self.ROOT_PATH .. "textures\\inventory_button_hide_empty_down.tga"
+_self.textures.hideEmptyBtnUp = _self.ROOT_PATH .. "textures\\inventory_button_hide_empty_up.tga"
+_self.textures.tradeBtnDown = _self.ROOT_PATH .. "textures\\button_trade_down.tga"
+_self.textures.tradeBtnUp = _self.ROOT_PATH .. "textures\\button_trade_up.tga"
+_self.textures.useBtnDown = _self.ROOT_PATH .. "textures\\button_use_down.tga"
+_self.textures.useBtnUp = _self.ROOT_PATH .. "textures\\button_use_up.tga"
+_self.textures.useItemOnItemFrame = _self.ROOT_PATH .. "textures\\frame_item_use_on_item.tga"
 
-_data.textures.slotLoading = _data.ROOT_PATH .. "textures\\slot_loading.tga"
+_self.textures.slotLoading = _self.ROOT_PATH .. "textures\\slot_loading.tga"
 
 
 
-_data.raceData =
+_self.raceData =
 {
     ORC = {
         background = "Interface\\DressUpFrame\\DressUpBackground-Orc1.blp"
@@ -158,28 +158,28 @@ _data.raceData =
 ----- Sounds
 -----------------------------------------------------------------------------
 
-_data.sounds.onAddonShow = ""--"KeyRingOpen"
-_data.sounds.onAddonHide = "gsTitleQuit"
-_data.sounds.onTabSwitch = "igAbilityOpen"
-_data.sounds.onBotSelect = "INTERFACESOUND_GAMESCROLLBUTTON"
+_self.sounds.onAddonShow = ""--"KeyRingOpen"
+_self.sounds.onAddonHide = "gsTitleQuit"
+_self.sounds.onTabSwitch = "igAbilityOpen"
+_self.sounds.onBotSelect = "INTERFACESOUND_GAMESCROLLBUTTON"
 
 -----------------------------------------------------------------------------
 ----- Strings
 -----------------------------------------------------------------------------
 
 -- bot list
-_data.strings.tooltips = {}
-_data.strings.tooltips.updateBots = "Update bots - forces full a scan on all bots registered and online.\nThis can be quite heavy with lots of bots."
-_data.strings.tooltips.addBot = "Add bot command. Bot will come online."
-_data.strings.tooltips.removeBot = "Remove bot, it will go offline"
-_data.strings.tooltips.inviteBot = "Invite bot to party / raid"
-_data.strings.tooltips.uninviteBot = "Uninvite from party / raid"
+_self.strings.tooltips = {}
+_self.strings.tooltips.updateBots = "Update bots - forces full a scan on all bots registered and online.\nThis can be quite heavy with lots of bots."
+_self.strings.tooltips.addBot = "Add bot command. Bot will come online."
+_self.strings.tooltips.removeBot = "Remove bot, it will go offline"
+_self.strings.tooltips.inviteBot = "Invite bot to party / raid"
+_self.strings.tooltips.uninviteBot = "Uninvite from party / raid"
 -- gear view
-_data.strings.tooltips.gearViewHelp = "Right click to unequip item\nDrag items from your bag on the portrait to trade them"
-_data.strings.tooltips.gearViewUpdateGear = "Update all selected bot gear\nUse if you notice desync due to bugs or network"
+_self.strings.tooltips.gearViewHelp = "Right click to unequip item\nDrag items from your bag on the portrait to trade them"
+_self.strings.tooltips.gearViewUpdateGear = "Update all selected bot gear\nUse if you notice desync due to bugs or network"
 -- inventory tab
-_data.strings.tooltips.inventoryTabUpdate = "Update all bot items and bags, including bank and keychain\nUse if you notice desync due to bugs or network"
-_data.strings.tooltips.inventoryTabHelp = "Right click to use or equip item. If trade is opened, will put it in trade.\nLeft click to start \" Use item on item\" action and right click to abort\nShift + Left click to print item link in chat"
-_data.strings.tooltips.inventoryTabHideEmptySlots = "Hide empty slots"
-_data.strings.tooltips.inventoryTabTradeBtn = "Open / Close trade panel"
-_data.strings.tooltips.inventoryTabUseBtn = "Use item on item mode, left click first then second item.\nRight click to cancel"
+_self.strings.tooltips.inventoryTabUpdate = "Update all bot items and bags, including bank and keychain\nUse if you notice desync due to bugs or network"
+_self.strings.tooltips.inventoryTabHelp = "Right click to use or equip item. If trade is opened, will put it in trade.\nLeft click to start \" Use item on item\" action and right click to abort\nShift + Left click to print item link in chat"
+_self.strings.tooltips.inventoryTabHideEmptySlots = "Hide empty slots"
+_self.strings.tooltips.inventoryTabTradeBtn = "Open / Close trade panel"
+_self.strings.tooltips.inventoryTabUseBtn = "Use item on item mode, left click first then second item.\nRight click to cancel"

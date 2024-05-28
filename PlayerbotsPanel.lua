@@ -1,19 +1,15 @@
-PlayerbotsPanel = AceLibrary("AceAddon-2.0"):new("AceConsole-2.0", "AceDB-2.0", "AceHook-2.1", "AceDebug-2.0", "AceEvent-2.0")
 local _self = PlayerbotsPanel
-_self.rootPath = "Interface\\AddOns\\PlayerbotsPanel\\"
-local _rootFrame = CreateFrame("Frame", "PlayerbotsPanelFrame", UIParent)
-_self:RegisterDB("PlayerbotsPanelDb", "PlayerbotsPanelDbPerChar")
-
+local ROOT_FRAME = PlayerbotsPanel.rootFrame
 local ROOT_PATH  = PlayerbotsPanel.rootPath
-local _cfg = PlayerbotsPanelConfig
-local _data = PlayerbotsPanelData
-local _util = PlayerbotsPanelUtil
-local _debug = AceLibrary:GetInstance("AceDebug-2.0")
-local _updateHandler = PlayerbotsPanelUpdateHandler
+local _cfg = PlayerbotsPanel.Config
+local _data = PlayerbotsPanel.Data
+local _util = PlayerbotsPanel.Util
+local _updateHandler = PlayerbotsPanel.UpdateHandler
+local _tooltips = PlayerbotsPanel.Tooltips
+local _itemCache = PlayerbotsPanel.ItemCache
+local _debug = PlayerbotsPanel.Debug
 local _broker = PlayerbotsBroker
-local _tooltips = PlayerbotsPanelTooltips
 local _dbchar = {}
-local _itemCache = PlayerbotsPanelItemCache
 local _dbaccount = {}
 local CALLBACK_TYPE = PlayerbotsBrokerCallbackType
 local QUERY_TYPE = PlayerbotsBrokerQueryType
@@ -28,14 +24,14 @@ _self.events.onBotSelectionChanged = _util.CreateEvent()
 -- references to tab objects that will be initialized, declared in corresponding files
 _self.tabInitList = 
 {
-    PlayerbotsPanelTabCommands,
-    PlayerbotsPanelTabInventory,
-    PlayerbotsPanelTabQuests,
-    PlayerbotsPanelTabSettings,
-    PlayerbotsPanelTabSpells,
-    PlayerbotsPanelTabStats,
-    PlayerbotsPanelTabStrategies,
-    PlayerbotsPanelTabTalents,
+    _self.Objects.PlayerbotsPanelTabCommands,
+    _self.Objects.PlayerbotsPanelTabInventory,
+    _self.Objects.PlayerbotsPanelTabQuests,
+    _self.Objects.PlayerbotsPanelTabSettings,
+    _self.Objects.PlayerbotsPanelTabSpells,
+    _self.Objects.PlayerbotsPanelTabStats,
+    _self.Objects.PlayerbotsPanelTabStrategies,
+    _self.Objects.PlayerbotsPanelTabTalents,
 }
 
 _self.mainTabGroup = { }
@@ -103,10 +99,10 @@ _self.commands = {
 
 local _gearView = {}
 -- root frame of the paperdoll view for bots
-local PlayerbotsGear     = CreateFrame("Frame", "PlayerbotsGear", _rootFrame)
+local PlayerbotsGear     = CreateFrame("Frame", "PlayerbotsGear", ROOT_FRAME)
 _gearView.frame = PlayerbotsGear
 -- renders the bot 3d model
-local ModelViewFrame     = CreateFrame("PlayerModel", "ModelViewFrame", _rootFrame)
+local ModelViewFrame     = CreateFrame("PlayerModel", "ModelViewFrame", ROOT_FRAME)
 _gearView.modelView = ModelViewFrame
 
 function _self:OnInitialize()
@@ -143,7 +139,7 @@ end
 function _self:OnEnable()
     self:SetDebugging(true)
 
-    _rootFrame:Show()
+    ROOT_FRAME:Show()
     _self:UpdateBotSelector()
     _broker:OnEnable()
 end
@@ -167,7 +163,7 @@ function _self:Update(elapsed)
 end
 
 function _self:ClosePanel()
-	HideUIPanel(_rootFrame)
+	HideUIPanel(ROOT_FRAME)
 end
 
 function _self:print(t)
@@ -455,10 +451,10 @@ function _self:SetSelectedBot(botname)
 end
 
 function _self:OnClick()
-    if _rootFrame:IsVisible() then
-        _rootFrame:Hide()
+    if ROOT_FRAME:IsVisible() then
+        ROOT_FRAME:Hide()
     else 
-        _rootFrame:Show()
+        ROOT_FRAME:Show()
     end
 end
 
@@ -1030,27 +1026,27 @@ function _self:SetupGearFrame()
 end
 
 function _self:CreateWindow()
-    UIPanelWindows[_rootFrame:GetName()] = { area = "center", pushable = 0, whileDead = 1 }
-    tinsert(UISpecialFrames, _rootFrame:GetName())
-    _rootFrame:HookScript("OnUpdate", _self.Update)
-    _rootFrame:SetFrameStrata(_cfg.panelStrata)
-    _rootFrame:SetWidth(800)
-    _rootFrame:SetHeight(420)
-    _rootFrame:SetPoint("CENTER")
-    _rootFrame:SetMovable(true)
-    _rootFrame:RegisterForDrag("LeftButton")
-    _rootFrame:SetScript("OnDragStart", _rootFrame.StartMoving)
-    _rootFrame:SetScript("OnDragStop", _rootFrame.StopMovingOrSizing)
-    _rootFrame:SetScript("OnShow", _self.OnShow)
-    _rootFrame:SetScript("OnHide", _self.OnHide)
-    _rootFrame:EnableMouse(true)
+    UIPanelWindows[ROOT_FRAME:GetName()] = { area = "center", pushable = 0, whileDead = 1 }
+    tinsert(UISpecialFrames, ROOT_FRAME:GetName())
+    ROOT_FRAME:HookScript("OnUpdate", _self.Update)
+    ROOT_FRAME:SetFrameStrata(_cfg.panelStrata)
+    ROOT_FRAME:SetWidth(800)
+    ROOT_FRAME:SetHeight(420)
+    ROOT_FRAME:SetPoint("CENTER")
+    ROOT_FRAME:SetMovable(true)
+    ROOT_FRAME:RegisterForDrag("LeftButton")
+    ROOT_FRAME:SetScript("OnDragStart", ROOT_FRAME.StartMoving)
+    ROOT_FRAME:SetScript("OnDragStop", ROOT_FRAME.StopMovingOrSizing)
+    ROOT_FRAME:SetScript("OnShow", _self.OnShow)
+    ROOT_FRAME:SetScript("OnHide", _self.OnHide)
+    ROOT_FRAME:EnableMouse(true)
 
     _tooltips:Init(UIParent)
 
     _self:SetupGearFrame()
-    _self:AddWindowStyling(_rootFrame)
+    _self:AddWindowStyling(ROOT_FRAME)
 
-    _self.botSelectorParentFrame = CreateFrame("ScrollFrame", "botSelector", _rootFrame, "FauxScrollFrameTemplate")
+    _self.botSelectorParentFrame = CreateFrame("ScrollFrame", "botSelector", ROOT_FRAME, "FauxScrollFrameTemplate")
     _self.botSelectorParentFrame:SetPoint("TOPLEFT", 0, -24)
     _self.botSelectorParentFrame:SetSize(140, 368)
     
@@ -1518,7 +1514,7 @@ local function CreateTab(name, frame, tabNum, tabGroup)
     tab.object = _util.Where(_self.tabInitList, function(k,v)
         if v.id == name then return true end
     end)
-    tab.button = CreateTabButton(name, _rootFrame, tab)
+    tab.button = CreateTabButton(name, ROOT_FRAME, tab)
 
 
     local bUseFullFrame = false
@@ -1687,7 +1683,7 @@ local function CreateTabGroup(tabsList, defaultTabName)
     end
     
     for k,v in pairs(tabsList) do
-        group.tabs[v] = CreateTab(v, _rootFrame, i, group)
+        group.tabs[v] = CreateTab(v, ROOT_FRAME, i, group)
         i = i + 1
     end
     group.setTabActive(defaultTabName)
