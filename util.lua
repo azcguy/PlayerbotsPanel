@@ -21,7 +21,7 @@ function _self.SetVertexColor(tex, c)
         c = _data.colors.red
         print("ERROR SETTING COLOR")
     end
-    tex:SetVertexColor(c.r, c.g, c.b)
+    tex:SetVertexColor(c.fr, c.fg, c.fb, c.fa)
 end
 
 function _self.SetTextColorToClass(text, class)

@@ -383,14 +383,6 @@ function _self:ValidateBotData(bot)
         EnsureField(bot.items, i, {})
     end
     
-    
-    --              -2: Keyring
-    --              -1 Main storage area in the bank
-    --              0: Backpack
-    --              1 through NUM_BAG_SLOTS: Bag slots (as presented in the default UI, numbered right to left)
-    --              NUM_BAG_SLOTS + 1 through NUM_BAG_SLOTS + NUM_BANKBAGSLOTS: Bank bag slots (as presented in the default UI, numbered left to right)
-
-
     EnsureField(bot, "bags", {})
     EnsureField(bot.bags, -2, _self:CreateBagData("Keyring", 32))
     EnsureField(bot.bags, -1, _self:CreateBagData("Bank Storage", 28)) -- bank 0
@@ -400,12 +392,20 @@ function _self:ValidateBotData(bot)
     EnsureField(bot.bags, 3,  _self:CreateBagData(nil, 0))
     EnsureField(bot.bags, 4,  _self:CreateBagData(nil, 0))
     EnsureField(bot.bags, 5,  _self:CreateBagData(nil, 0)) -- bank 1
-    EnsureField(bot.bags, 6,  _self:CreateBagData(nil, 0)) -- bank 2
-    EnsureField(bot.bags, 7,  _self:CreateBagData(nil, 0)) -- bank 3
-    EnsureField(bot.bags, 8,  _self:CreateBagData(nil, 0)) -- bank 4
-    EnsureField(bot.bags, 9,  _self:CreateBagData(nil, 0)) -- bank 5
-    EnsureField(bot.bags, 10, _self:CreateBagData(nil, 0)) -- bank 6
+    EnsureField(bot.bags, 6,  _self:CreateBagData(nil, 0)) 
+    EnsureField(bot.bags, 7,  _self:CreateBagData(nil, 0)) 
+    EnsureField(bot.bags, 8,  _self:CreateBagData(nil, 0)) 
+    EnsureField(bot.bags, 9,  _self:CreateBagData(nil, 0)) 
+    EnsureField(bot.bags, 10, _self:CreateBagData(nil, 0)) 
     EnsureField(bot.bags, 11, _self:CreateBagData(nil, 0)) -- bank 7
+
+    EnsureField(bot, "stats", {})
+    EnsureField(bot.stats, "base", {})
+    EnsureField(bot.stats, "resists", {})
+    EnsureField(bot.stats, "melee", {})
+    EnsureField(bot.stats, "ranged", {})
+    EnsureField(bot.stats, "spell", {})
+    EnsureField(bot.stats, "defenses", {})
 end
 
 function _self:RegisterByName(name)
@@ -1561,7 +1561,7 @@ local function CreateTab(name, frame, tabNum, tabGroup)
             local subtab = self.subtabs[i]
             if subtab and subtab:IsShown() then 
                 subtab.button:SetButtonState("NORMAL", false)
-                subtab.onDeactivate:Invoke(self.activeSubTab)
+                subtab.onDeactivate:Invoke(subtab)
                 subtab:Hide()
             end
         end
@@ -1648,6 +1648,10 @@ local function CreateTab(name, frame, tabNum, tabGroup)
         if self.object ~= nil then
             self.outerframe:Hide()
             self.object:OnDeactivate(self)
+
+            if self.activeSubTab then
+                self:SetSubTab(-1)
+            end
         end
     end
 

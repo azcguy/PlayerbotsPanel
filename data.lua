@@ -49,12 +49,13 @@ _self.colors.defaultSlotHighlight = {
 _self.colors.quality = {}
 for i=0, 7 do
     local r,g,b = GetItemQualityColor(i)
-    _self.colors.quality[i] = _self.CreateColor(r,g,b)
+    _self.colors.quality[i] = _self.CreateColorF(r,g,b)
 end
 
 _self.colors.white = _self.CreateColor(255,255,255,255,"#FFFFFF")
 _self.colors.gold = _self.CreateColor(255,215,0,255,"#FFD700")
 _self.colors.red = _self.CreateColor(255,0,0,255,"#FF0000")
+_self.colors.green = _self.CreateColor(0,255,0,255,"#FF0000")
 _self.colors.gray = _self.CreateColor(55,55,55,255,"#848484")
 _self.colors.classes = {
     DEATHKNIGHT = _self.CreateColor(196, 30, 58, 255, "#C41E3A"),
@@ -187,3 +188,119 @@ _self.strings.tooltips.inventoryTabHelp = "Right click to use or equip item. If 
 _self.strings.tooltips.inventoryTabHideEmptySlots = "Hide empty slots"
 _self.strings.tooltips.inventoryTabTradeBtn = "Open / Close trade panel"
 _self.strings.tooltips.inventoryTabUseBtn = "Use item on item mode, left click first then second item.\nRight click to cancel"
+
+
+-----------------------------------------------------------------------------
+----- Stats
+-----------------------------------------------------------------------------
+
+local function SetTextColor(text, c)
+    text:SetTextColor(c.fr, c.fg, c.fb, c.fa)
+end
+
+_self.STAT_KEY = {
+    "RESIST_FIRE",
+    "RESIST_NATURE",
+    "RESIST_FROST",
+    "RESIST_SHADOW",
+    "RESIST_ARCANE",
+    "AGILITY",
+    "INTELLECT",
+    "SPIRIT",
+    "STAMINA",
+    "STRENGTH"
+}
+
+local _red = _self.colors.red
+local _green = _self.colors.green
+
+local function colorStatByVal(frame, positive, negative)
+    local txt = frame.txtValue
+    if positive > 0 or negative > 0 then
+        if positive > negative then
+            SetTextColor(txt, _green)
+        else
+            SetTextColor(txt, _red)
+        end
+    end
+end
+
+local function onResistTooltip(tooltip, group)
+    tooltip:AddLine("Base: " .. group.base)
+    tooltip:AddLine("Current: " .. group.resistance)
+    if group.positive > 0 then
+        tooltip:AddLine("From buffs: " .. group.positive, _green.fr, _green.fg, _green.fb)
+    end
+
+    if group.negative > 0 then
+        tooltip:AddLine("From debuffs: " .. group.negative, _red.fr, _red.fg, _red.fb)
+    end
+end
+
+local function onUpdateResist(frame, group)
+    frame.txtValue:SetText(group.resistance)
+    colorStatByVal(frame, group.positive, group.negative)
+end
+
+--- Used by stat rows 
+_self.stats = {
+    --[[
+        1 - Arcane
+        2 - Fire
+        3 - Nature
+        4 - Frost
+        5 - Shadow
+    ]]
+    ["RESIST_ARCANE"] = {
+        name = "Arcane Resistance",
+        nameColor =  _self.CreateColor(64, 173, 203),
+        onUpdateValue = function (frame, botstats)
+            onUpdateResist(frame, botstats.resists[1])
+        end,
+        onTooltip = function (botstats, tooltip)
+            onResistTooltip(tooltip, botstats.resists[1])
+        end
+    },
+    ["RESIST_FIRE"] = {
+        name = "Fire Resistance",
+        nameColor =  _self.CreateColor(226, 54, 54),
+        onUpdateValue = function (frame, botstats)
+            onUpdateResist(frame, botstats.resists[2])
+        end,
+        onTooltip = function (botstats, tooltip)
+            onResistTooltip(tooltip, botstats.resists[2])
+        end
+    },
+    ["RESIST_NATURE"] = {
+        name = "Nature Resistance",
+        nameColor =  _self.CreateColor(32, 217, 100),
+        onUpdateValue = function (frame, botstats)
+            onUpdateResist(frame, botstats.resists[3])
+        end,
+        onTooltip = function (botstats, tooltip)
+            onResistTooltip(tooltip, botstats.resists[3])
+        end
+    },
+    ["RESIST_FROST"] = {
+        name = "Frost Resistance",
+        nameColor =  _self.CreateColor(126, 217, 231),
+        onUpdateValue = function (frame, botstats)
+            onUpdateResist(frame, botstats.resists[4])
+        end,
+        onTooltip = function (botstats, tooltip)
+            onResistTooltip(tooltip, botstats.resists[4])
+        end
+    },
+    ["RESIST_SHADOW"] = {
+        name = "Shadow Resistance",
+        nameColor =  _self.CreateColor(140, 103, 213),
+        onUpdateValue = function (frame, botstats)
+            onUpdateResist(frame, botstats.resists[5])
+        end,
+        onTooltip = function (botstats, tooltip)
+            onResistTooltip(tooltip, botstats.resists[5])
+        end
+    },
+    
+
+}

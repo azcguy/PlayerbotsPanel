@@ -20,6 +20,8 @@ local _freeIdsCount = 0
 local _activeIdsCount = 0
 local queryTemplates = {}
 local MAX_IDS_COUNT = 999
+local HEADER_LENGHT = 8
+local MAX_PAYLOAD_LENGTH = 255 - HEADER_LENGHT -- header length is 8
 
 -- ============================================================================================
 -- ============== PUBLIC API
@@ -32,6 +34,14 @@ local _globalCallbacks = {} -- callbacks called for ANY bot
 
 -- UPDATED_STATUS (bot, status)                 // Online/offline/party
 CALLBACK_TYPE.STATUS_CHANGED = {}
+-- Any stat changed 
+CALLBACK_TYPE.STATS_CHANGED = {}
+CALLBACK_TYPE.STATS_CHANGED_BASE = {}
+CALLBACK_TYPE.STATS_CHANGED_RESISTS = {}
+CALLBACK_TYPE.STATS_CHANGED_MELEE = {}
+CALLBACK_TYPE.STATS_CHANGED_RANGED = {}
+CALLBACK_TYPE.STATS_CHANGED_SPELL = {}
+CALLBACK_TYPE.STATS_CHANGED_DEFENSES = {}
 -- (gold, silver, copper)
 CALLBACK_TYPE.MONEY_CHANGED = {}
 -- (currencyItemID, count)
@@ -125,13 +135,26 @@ QUERY_TYPE.TALENTS    =         _strbyte("t") -- talents and talent points
 QUERY_TYPE.SPELLS     =         _strbyte("s") -- spellbook
 QUERY_TYPE.QUESTS     =         _strbyte("q") -- all quests
 QUERY_TYPE.STRATEGIES =         _strbyte("S")
+QUERY_TYPE.STATS      =         _strbyte("T") -- all stats
+--[[ Stats are grouped and sent together 
+    subtypes:
+        b - base + resists
+        m - melee
+        r - ranged
+        s - spell
+        d - defenses
+]] 
+QUERY_TYPE.STATS_BASE     =         _strbyte("b") -- all stats
+QUERY_TYPE.STATS_MELEE    =         _strbyte("m") -- all stats
+QUERY_TYPE.STATS_RANGED   =         _strbyte("r") -- all stats
+QUERY_TYPE.STATS_SPELL    =         _strbyte("s") -- all stats
+QUERY_TYPE.STATS_DEFENSES =         _strbyte("d") -- all stats
 
 PlayerbotsBrokerQueryOpcode = {}
 local QUERY_OPCODE = PlayerbotsBrokerQueryOpcode
 QUERY_OPCODE.PROGRESS =         _strbyte("p") -- query is in progress
 QUERY_OPCODE.FINAL    =         _strbyte("f") -- final message of the query, contains the final payload, and closes query
 -- bytes 49 - 57 are errors
-
 
 PlayerbotsBrokerCommandType = {}
 local COMMAND = PlayerbotsBrokerCommandType
@@ -459,6 +482,7 @@ _parser.nextChar = function (self)
 end
 
 _parser.nextCharAsByte = function (self)
+---@diagnostic disable-next-line: param-type-mismatch
     return _strbyte(self:nextChar())
 end
 
@@ -602,20 +626,16 @@ queryTemplates[QUERY_TYPE.WHO] =
             local changed_exp = false
             local changed_zone = false
 
-            if bot.level ~= level then
-                bot.level = level
-                changed_level = true
+            local function evalChange(newval, obj, oldval)
+                if newval ~= obj[oldval] then
+                    obj[oldval] = newval
+                    return true
+                end
             end
 
-            if bot.talents.dualSpecUnlocked ~= secondSpecUnlocked then
-                bot.talents.dualSpecUnlocked = secondSpecUnlocked
-                changed_spec_data = true
-            end
-
-            if bot.talents.activeSpec ~= activeSpec then
-                bot.talents.activeSpec = activeSpec
-                changed_spec_data = true
-            end
+            changed_level = evalChange(level, bot, "level")
+            changed_spec_data = evalChange(secondSpecUnlocked, bot.talents, "dualSpecUnlocked")
+            changed_spec_data = evalChange(activeSpec, bot.talents, "activeSpec")
 
             local spec1 = bot.talents.specs[1]
             local spec1tabs = spec1.tabs
@@ -623,25 +643,10 @@ queryTemplates[QUERY_TYPE.WHO] =
             if points2 > points1 then p1 = 2 end
             if points3 > points2 then p1 = 3 end
             
-            if spec1.primary ~= p1 then
-                spec1.primary = p1
-                changed_spec_data = true
-            end
-
-            if spec1tabs[1].points ~= points1 then
-                spec1tabs[1].points = points1
-                changed_spec_data = true
-            end
-
-            if spec1tabs[2].points ~= points2 then
-                spec1tabs[2].points = points2
-                changed_spec_data = true
-            end
-
-            if spec1tabs[3].points ~= points3 then
-                spec1tabs[3].points = points3
-                changed_spec_data = true
-            end
+            changed_spec_data = evalChange(p1, spec1, "primary")
+            changed_spec_data = evalChange(points1, spec1tabs[1], "points")
+            changed_spec_data = evalChange(points2, spec1tabs[2], "points")
+            changed_spec_data = evalChange(points3, spec1tabs[3], "points")
 
             local spec2 = bot.talents.specs[2]
             local spec2tabs = spec2.tabs
@@ -649,35 +654,14 @@ queryTemplates[QUERY_TYPE.WHO] =
             if points5 > points4 then p2 = 2 end
             if points6 > points5 then p2 = 3 end
 
-            if spec2.primary ~= p2 then
-                spec2.primary = p2
-                changed_spec_data = true
-            end
+            changed_spec_data = evalChange(p2, spec2, "primary")
+            changed_spec_data = evalChange(points4, spec2tabs[1], "points")
+            changed_spec_data = evalChange(points5, spec2tabs[2], "points")
+            changed_spec_data = evalChange(points6, spec2tabs[3], "points")
 
-            if spec2tabs[1].points ~= points4 then
-                spec2tabs[1].points = points4
-                changed_spec_data = true
-            end
-
-            if spec2tabs[2].points ~= points5 then
-                spec2tabs[2].points = points5
-                changed_spec_data = true
-            end
-
-            if spec2tabs[3].points ~= points6 then
-                spec2tabs[3].points = points6
-                changed_spec_data = true
-            end
-
-            if bot.expLeft ~= expLeft then
-                bot.expLeft = expLeft
-                changed_exp = true
-            end
-
-            if bot.zone ~= zone then
-                bot.zone = zone
-                changed_zone = true
-            end
+            changed_exp = evalChange(expLeft, bot, "expLeft")
+            
+            changed_zone = evalChange(zone, bot, "zone")
 
             if changed_level then InvokeCallback(CALLBACK_TYPE.LEVEL_CHANGED, bot) end
             if changed_exp then InvokeCallback(CALLBACK_TYPE.EXPERIENCE_CHANGED, bot) end
@@ -719,6 +703,132 @@ queryTemplates[QUERY_TYPE.CURRENCY] =
                 botCurrencies[currencyId] = currency
             end
             InvokeCallback(CALLBACK_TYPE.CURRENCY_CHANGED, query.bot, currencyId, count)
+        end
+    end,
+    onFinalize       = function(query)
+    end,
+}
+
+queryTemplates[QUERY_TYPE.STATS] = 
+{
+    qtype = QUERY_TYPE.STATS,
+    callbackType = CALLBACK_TYPE.STATS_CHANGED,
+    onStart          = function(query)
+
+    end,
+    onProgress       = function(query, payload)
+        _parser:start(payload)
+        local bot = query.bot
+        local stats = bot.stats
+        local subtype = _parser:nextCharAsByte()
+
+        local changed_base = false
+        local changed_resists = false
+        local changed_melee = false
+        local changed_ranged = false
+        local changed_spell = false
+        local changed_defenses = false
+
+        local function evalChange(newval, obj, oldval)
+            if newval ~= obj[oldval] then
+                obj[oldval] = newval
+                return true
+            end
+        end
+
+        if subtype == QUERY_TYPE.STATS_BASE then
+            local stats_base = stats.base
+            local stats_res = stats.resists
+            for i=1, 5 do -- loop basic stats
+                --[[
+                    index corresponds to blizzard index
+                      1  Agility
+                      2  Intellect
+                      3  Spirit
+                      4  Stamina
+                      5  Strength
+                ]]
+                -- format > value : effectiveStat : positive : negative
+                local statData = stats_base[i]
+                if not statData then
+                    changed_base = true
+                    statData = {}
+                    stats_base[i] = statData
+                end
+                
+                changed_base = evalChange(_parser:nextInt(), statData, "value")
+                changed_base = evalChange(_parser:nextInt(), statData, "effectiveStat")
+                changed_base = evalChange(_parser:nextInt(), statData, "positive")
+                changed_base = evalChange(_parser:nextInt(), statData, "negative")
+            end
+
+            for i=1, 5 do -- loop resists
+                --[[
+                    1 - Arcane
+                    2 - Fire
+                    3 - Nature
+                    4 - Frost
+                    5 - Shadow
+                ]]
+                -- format > base : resistance : positive : negative
+
+                local statData = stats_res[i]
+                if not statData then
+                    changed_resists = true
+                    statData = {}
+                    stats_res[i] = statData
+                end
+
+                changed_resists = evalChange(_parser:nextInt(), statData, "base")
+                changed_resists = evalChange(_parser:nextInt(), statData, "resistance")
+                changed_resists = evalChange(_parser:nextInt(), statData, "positive")
+                changed_resists = evalChange(_parser:nextInt(), statData, "negative")
+            end
+
+            changed_base = evalChange(_parser:nextInt(), stats, "expertise")
+            changed_base = evalChange(_parser:nextFloat(), stats, "expertisePercent")
+            changed_base = evalChange(_parser:nextFloat(), stats, "expertiseOffhandPercent")
+
+        elseif subtype == QUERY_TYPE.STATS_MELEE then
+            local melee = stats.melee
+
+            changed_melee = evalChange(_parser:nextFloat(), melee, "minMeleeDamage")
+            changed_melee = evalChange(_parser:nextFloat(), melee, "maxMeleeDamage")
+            changed_melee = evalChange(_parser:nextFloat(), melee, "minMeleeOffHandDamage")
+            changed_melee = evalChange(_parser:nextFloat(), melee, "maxMeleeOffHandDamage")
+            changed_melee = evalChange(_parser:nextInt(), melee, "meleePhysicalBonusPositive")
+            changed_melee = evalChange(_parser:nextInt(), melee, "meleePhysicalBonusNegative")
+            changed_melee = evalChange(_parser:nextFloat(), melee, "meleeDamageBuffPercent")
+
+            changed_melee = evalChange(_parser:nextFloat(), melee, "meleeSpeed")
+            changed_melee = evalChange(_parser:nextFloat(), melee, "meleeOffhandSpeed")
+
+            changed_melee = evalChange(_parser:nextInt(), melee, "meleeAtkPowerBase")
+            changed_melee = evalChange(_parser:nextInt(), melee, "meleeAtkPowerPositive")
+            changed_melee = evalChange(_parser:nextInt(), melee, "meleeAtkPowerNegative")
+
+            changed_melee = evalChange(_parser:nextInt(), melee, "meleeHaste")
+            changed_melee = evalChange(_parser:nextFloat(), melee, "meleeHasteBonus")
+
+            changed_melee = evalChange(_parser:nextInt(), melee, "meleeCrit")
+            changed_melee = evalChange(_parser:nextFloat(), melee, "meleeCritBonus")
+
+            changed_melee = evalChange(_parser:nextInt(), melee, "meleeHit")
+            changed_melee = evalChange(_parser:nextFloat(), melee, "meleeHitBonus")
+
+            changed_melee = evalChange(_parser:nextInt(), melee, "meleeResil")
+            changed_melee = evalChange(_parser:nextFloat(), melee, "meleeResilBonus")
+        end
+
+        if changed_base then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_BASE, bot) end
+        if changed_resists then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_RESISTS, bot) end
+        if changed_melee then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_MELEE, bot) end
+        if changed_ranged then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_RANGED, bot) end
+        if changed_spell then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_SPELL, bot) end
+        if changed_defenses then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_DEFENSES, bot) end
+
+        if changed_base or changed_defenses or changed_melee or changed_ranged or changed_resists or changed_spell then
+            InvokeCallback(CALLBACK_TYPE.STATS_CHANGED, bot)
         end
     end,
     onFinalize       = function(query)
@@ -848,6 +958,12 @@ local function BufferConcat(separator, count, a1, a2, a3, a4, a5, a6, a7, a8, a9
 end
 
 -- ID must be uint16
+---comment
+---@param target string name of the bot
+---@param header number byte header id
+---@param subtype number byte subtype
+---@param id number id, currently only used by queries
+---@param payload string 
 function _self:GenerateMessage(target, header, subtype, id, payload)
     if not id then id = 0 end
     local msg = BufferConcat(MSG_SEPARATOR, 4, _strchar(header), _strchar(subtype), _strformat("%03d", id), _eval(payload, payload, ""))
@@ -1225,6 +1341,14 @@ end
 
 function _self:PARTY_MEMBER_DISABLE(id)
     print(id)
+end
+
+function _self:DebugMaxLengthMsg()
+    local buffer = {}
+    for i=1, MAX_PAYLOAD_LENGTH do
+        _tinsert(buffer, _strchar(random(49, 59)))
+    end
+    _self:GenerateMessage(PlayerbotsPanel.selectedBot.name, 55, 55, 0, _tconcat(buffer))
 end
 
 
