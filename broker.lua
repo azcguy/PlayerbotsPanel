@@ -27,55 +27,32 @@ local MAX_PAYLOAD_LENGTH = 255 - HEADER_LENGHT -- header length is 8
 -- ============== PUBLIC API
 -- ============================================================================================
 
-PlayerbotsBrokerCallbackType = {}
-local CALLBACK_TYPE = PlayerbotsBrokerCallbackType
-local _callbacks = {} -- callbacks PER bot
-local _globalCallbacks = {} -- callbacks called for ANY bot
-
 _self.EVENTS = {}
-_self.EVENTS.STATUS_CHANGED = _util.CreateEvent()
-_self.EVENTS.STATS_CHANGED = _util.CreateEvent()
-_self.EVENTS.STATS_CHANGED_BASE = _util.CreateEvent()
-_self.EVENTS.STATS_CHANGED_RESISTS = _util.CreateEvent()
-_self.EVENTS.STATS_CHANGED_MELEE = _util.CreateEvent()
-_self.EVENTS.STATS_CHANGED_RANGED = _util.CreateEvent()
-_self.EVENTS.STATS_CHANGED_SPELL = _util.CreateEvent()
-_self.EVENTS.STATS_CHANGED_DEFENSES = _util.CreateEvent()
-_self.EVENTS.MONEY_CHANGED = _util.CreateEvent()
-_self.EVENTS.CURRENCY_CHANGED = _util.CreateEvent()
-_self.EVENTS.LEVEL_CHANGED = _util.CreateEvent()
-_self.EVENTS.EXPERIENCE_CHANGED = _util.CreateEvent()
-_self.EVENTS.SPEC_DATA_CHANGED = _util.CreateEvent()
-_self.EVENTS.ZONE_CHANGED = _util.CreateEvent()
-_self.EVENTS.EQUIP_SLOT_CHANGED = _util.CreateEvent()
-_self.EVENTS.EQUIPMENT_CHANGED = _util.CreateEvent()
-_self.EVENTS.INVENTORY_CHANGED = _util.CreateEvent()
+local _EVENTS = _self.EVENTS
+-- UPDATED_STATUS (bot, status) 
+_EVENTS.STATUS_CHANGED = _util.CreateEvent()
 
--- UPDATED_STATUS (bot, status)                 // Online/offline/party
-CALLBACK_TYPE.STATUS_CHANGED = {}
--- Any stat changed 
-CALLBACK_TYPE.STATS_CHANGED = {}
-CALLBACK_TYPE.STATS_CHANGED_BASE = {}
-CALLBACK_TYPE.STATS_CHANGED_RESISTS = {}
-CALLBACK_TYPE.STATS_CHANGED_MELEE = {}
-CALLBACK_TYPE.STATS_CHANGED_RANGED = {}
-CALLBACK_TYPE.STATS_CHANGED_SPELL = {}
-CALLBACK_TYPE.STATS_CHANGED_DEFENSES = {}
--- (gold, silver, copper)
-CALLBACK_TYPE.MONEY_CHANGED = {}
+_EVENTS.STATS_CHANGED = _util.CreateEvent()
+_EVENTS.STATS_CHANGED_BASE = _util.CreateEvent()
+_EVENTS.STATS_CHANGED_RESISTS = _util.CreateEvent()
+_EVENTS.STATS_CHANGED_MELEE = _util.CreateEvent()
+_EVENTS.STATS_CHANGED_RANGED = _util.CreateEvent()
+_EVENTS.STATS_CHANGED_SPELL = _util.CreateEvent()
+_EVENTS.STATS_CHANGED_DEFENSES = _util.CreateEvent()
+
+_EVENTS.MONEY_CHANGED = _util.CreateEvent()
 -- (currencyItemID, count)
-CALLBACK_TYPE.CURRENCY_CHANGED = {}
-CALLBACK_TYPE.LEVEL_CHANGED = {}
-CALLBACK_TYPE.EXPERIENCE_CHANGED = {}
-CALLBACK_TYPE.SPEC_DATA_CHANGED = {}
-CALLBACK_TYPE.ZONE_CHANGED = {}
+_EVENTS.CURRENCY_CHANGED = _util.CreateEvent()
+_EVENTS.LEVEL_CHANGED = _util.CreateEvent()
+_EVENTS.EXPERIENCE_CHANGED = _util.CreateEvent()
+_EVENTS.SPEC_DATA_CHANGED = _util.CreateEvent()
+_EVENTS.ZONE_CHANGED = _util.CreateEvent()
 -- UPDATED_EQUIP_SLOT (bot, slotNum)            // bot equips a single item
-CALLBACK_TYPE.EQUIP_SLOT_CHANGED = {}
+_EVENTS.EQUIP_SLOT_CHANGED = _util.CreateEvent()
 -- UPDATED_EQUIPMENT (bot)                      // full equipment update completed
-CALLBACK_TYPE.EQUIPMENT_CHANGED = {}
-
-CALLBACK_TYPE.INVENTORY_CHANGED = {} -- // full bags update 
-
+_EVENTS.EQUIPMENT_CHANGED = _util.CreateEvent()
+ -- full bags update 
+_EVENTS.INVENTORY_CHANGED = _util.CreateEvent()
 
 -- ============================================================================================
 -- ============== Locals optimization, use in hotpaths
@@ -517,92 +494,6 @@ end
 ----- PARSER END / SHARED REGION END
 -----------------------------------------------------------------------------
 
-local function GetCallbackArray(ctype, name)
-    local cbs = _callbacks[name]
-    if not cbs then
-        cbs = {}
-        _callbacks[name] = cbs
-    end
-
-    local array = cbs[ctype]
-    if not array then
-        array = {}
-        cbs[ctype] = array
-    end
-    return array
-end
-
-local function GetGlobalCallbackArray(ctype)
-    local array = _globalCallbacks[ctype]
-    if not array then
-        array = {}
-        _globalCallbacks[ctype] = array
-    end
-    return array
-end
-
-function _self:RegisterGlobalCallback(ctype, callback)
-    if not ctype then return end
-    if not callback then return end
-    local array = GetGlobalCallbackArray(ctype)
-    _tinsert(array, callback)
-end
-
-function _self:UnregisterGlobalCallback(ctype, callback)
-    if not ctype then return end
-    if not callback then return end
-    local array = GetGlobalCallbackArray(ctype)
-    local idx = _util.FindIndex(array, callback)
-    if idx > 0 then
-        _tremove(array, idx)
-    end
-end
-
-function _self:RegisterCallback(ctype, botName, callback)
-    if not ctype then return end
-    if not botName then return end
-    if not callback then return end
-    
-    local array = GetCallbackArray(ctype, botName)
-    _tinsert(array, callback)
-end
-
-function _self:UnegisterCallback(ctype, botName, callback)
-    if not ctype then return end
-    if not botName then return end
-    if not callback then return end
-    local array = GetCallbackArray(ctype, botName)
-    local idx = _util.FindIndex(array, callback)
-    if idx > 0 then
-        _tremove(array, idx)
-    end
-end
-
-local function InvokeCallback(ctype, bot, arg1, arg2, arg3, arg4)
-    if not ctype then return end
-    if not bot then return end
-
-    local name = bot.name
-    local array = GetCallbackArray(ctype, name)
-    local count = _getn(array)
-    for i=1, count do
-        local callback = array[i]
-        if callback then
-            callback(bot, arg1, arg2, arg3, arg4)
-        end
-    end
-
-    array = GetGlobalCallbackArray(ctype)
-    count = _getn(array)
-    for i=1, count do
-        local callback = array[i]
-        if callback then
-            callback(bot, arg1, arg2, arg3, arg4)
-        end
-    end
-
-end
-
 -----------------------------------------------------------------------------
 ----- QUERIES START
 ----- QUERIES START
@@ -682,10 +573,10 @@ queryTemplates[QUERY_TYPE.WHO] =
             
             changed_zone = evalChange(zone, bot, "zone")
 
-            if changed_level then InvokeCallback(CALLBACK_TYPE.LEVEL_CHANGED, bot) end
-            if changed_exp then InvokeCallback(CALLBACK_TYPE.EXPERIENCE_CHANGED, bot) end
-            if changed_zone then InvokeCallback(CALLBACK_TYPE.ZONE_CHANGED, bot) end
-            if changed_spec_data then InvokeCallback(CALLBACK_TYPE.SPEC_DATA_CHANGED, bot) end
+            if changed_level then _EVENTS.LEVEL_CHANGED:Invoke(bot) end
+            if changed_exp then _EVENTS.EXPERIENCE_CHANGED:Invoke(bot) end
+            if changed_zone then _EVENTS.ZONE_CHANGED:Invoke(bot) end
+            if changed_spec_data then _EVENTS.SPEC_DATA_CHANGED:Invoke(bot) end
         end
     end,
     onFinalize       = function(query) end,
@@ -694,7 +585,6 @@ queryTemplates[QUERY_TYPE.WHO] =
 queryTemplates[QUERY_TYPE.CURRENCY] = 
 {
     qtype = QUERY_TYPE.CURRENCY,
-    callbackType = CALLBACK_TYPE.CURRENCY_CHANGED,
     onStart          = function(query)
 
     end,
@@ -709,7 +599,7 @@ queryTemplates[QUERY_TYPE.CURRENCY] =
             botCurrencies.silver = silver
             local copper = _parser:nextInt()
             botCurrencies.copper = copper
-            InvokeCallback(CALLBACK_TYPE.MONEY_CHANGED, query.bot, gold, silver, copper)
+            _EVENTS.MONEY_CHANGED:Invoke(query.bot, gold, silver, copper)
         elseif subtype == QUERY_TYPE.CURRENCY_OTHER then
             local currencyId = _parser:nextInt()
             local count = _parser:nextInt()
@@ -721,7 +611,7 @@ queryTemplates[QUERY_TYPE.CURRENCY] =
                 }
                 botCurrencies[currencyId] = currency
             end
-            InvokeCallback(CALLBACK_TYPE.CURRENCY_CHANGED, query.bot, currencyId, count)
+            _EVENTS.CURRENCY_CHANGED:Invoke(query.bot, currencyId, count)
         end
     end,
     onFinalize       = function(query)
@@ -731,7 +621,6 @@ queryTemplates[QUERY_TYPE.CURRENCY] =
 queryTemplates[QUERY_TYPE.STATS] = 
 {
     qtype = QUERY_TYPE.STATS,
-    callbackType = CALLBACK_TYPE.STATS_CHANGED,
     onStart          = function(query)
 
     end,
@@ -870,15 +759,15 @@ queryTemplates[QUERY_TYPE.STATS] =
             changed_melee = evalChange(_parser:nextFloat(), melee, "meleeResilBonus")
         end
 
-        if changed_base then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_BASE, bot) end
-        if changed_resists then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_RESISTS, bot) end
-        if changed_melee then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_MELEE, bot) end
-        if changed_ranged then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_RANGED, bot) end
-        if changed_spell then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_SPELL, bot) end
-        if changed_defenses then InvokeCallback(CALLBACK_TYPE.STATS_CHANGED_DEFENSES, bot) end
+        if changed_base then _EVENTS.STATS_CHANGED_BASE:Invoke(bot) end
+        if changed_resists then _EVENTS.STATS_CHANGED_RESISTS:Invoke( bot) end
+        if changed_melee then _EVENTS.STATS_CHANGED_MELEE:Invoke( bot) end
+        if changed_ranged then _EVENTS.STATS_CHANGED_RANGED:Invoke( bot) end
+        if changed_spell then _EVENTS.STATS_CHANGED_SPELL:Invoke( bot) end
+        if changed_defenses then _EVENTS.STATS_CHANGED_DEFENSES:Invoke( bot) end
 
         if changed_base or changed_defenses or changed_melee or changed_ranged or changed_resists or changed_spell then
-            InvokeCallback(CALLBACK_TYPE.STATS_CHANGED, bot)
+            _EVENTS.STATS_CHANGED:Invoke( bot)
         end
     end,
     onFinalize       = function(query)
@@ -888,7 +777,6 @@ queryTemplates[QUERY_TYPE.STATS] =
 queryTemplates[QUERY_TYPE.GEAR] = 
 {
     qtype = QUERY_TYPE.GEAR,
-    callbackType = CALLBACK_TYPE.EQUIPMENT_CHANGED,
     onStart          = function(query)
 
     end,
@@ -915,7 +803,7 @@ queryTemplates[QUERY_TYPE.GEAR] =
                     item.count = 0
                 end
             end
-            InvokeCallback(CALLBACK_TYPE.EQUIPMENT_CHANGED, query.bot)
+            _EVENTS.EQUIPMENT_CHANGED:Invoke( query.bot)
         end
     end,
 }
@@ -953,7 +841,7 @@ queryTemplates[QUERY_TYPE.INVENTORY] =
         end
     end,
     onFinalize       = function(query)
-        InvokeCallback(CALLBACK_TYPE.INVENTORY_CHANGED, query.bot)
+        _EVENTS.INVENTORY_CHANGED:Invoke(query.bot)
     end,
 }
 
@@ -1165,7 +1053,7 @@ SYS_MSG_HANDLERS[SYS_MSG_TYPE.HANDSHAKE] = function(id,payload, bot, status)
     if not status.online then
         status.online = true
         status.party = UnitInParty(bot.name) ~= nil
-        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot, status)
+        _EVENTS.STATUS_CHANGED:Invoke( bot, status)
     end
     _self:GenerateMessage(bot.name, MSG_HEADER.SYSTEM, SYS_MSG_TYPE.HANDSHAKE)
     _self:StartQuery(QUERY_TYPE.WHO, bot)
@@ -1176,14 +1064,14 @@ SYS_MSG_HANDLERS[SYS_MSG_TYPE.PING] = function(id,payload, bot, status)
     if not status.online then
         status.online = true
         status.party = UnitInParty(bot.name) ~= nil
-        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot, status)
+        _EVENTS.STATUS_CHANGED:Invoke( bot, status)
     end
 end
 
 SYS_MSG_HANDLERS[SYS_MSG_TYPE.LOGOUT] = function(id,payload, bot, status)
     if status.online then
         status.online = false
-        InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot, status)
+        _EVENTS.STATUS_CHANGED:Invoke( bot, status)
     end
 end
 
@@ -1221,14 +1109,14 @@ REP_MSG_HANDLERS[REPORT_TYPE.ITEM_EQUIPPED] = function(id,payload,bot,status)
     end
 
     if changed then
-        InvokeCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, bot, slotNum)
+        _EVENTS.EQUIP_SLOT_CHANGED:Invoke(  bot, slotNum)
     end
 end
 REP_MSG_HANDLERS[REPORT_TYPE.EXPERIENCE] = function(id,payload,bot,status) 
     _parser:start(payload)
     bot.level = _parser:nextInt()
     bot.expLeft = _parser:nextFloat()
-    InvokeCallback(CALLBACK_TYPE.EXPERIENCE_CHANGED, bot)
+    _EVENTS.EXPERIENCE_CHANGED:Invoke(  bot)
 end
 REP_MSG_HANDLERS[REPORT_TYPE.CURRENCY] = function(id,payload,bot,status) 
     _parser:start(payload)
@@ -1241,7 +1129,7 @@ REP_MSG_HANDLERS[REPORT_TYPE.CURRENCY] = function(id,payload,bot,status)
         botCurrencies.silver = silver
         local copper = _parser:nextInt()
         botCurrencies.copper = copper
-        InvokeCallback(CALLBACK_TYPE.MONEY_CHANGED, bot, gold, silver, copper)
+        _EVENTS.MONEY_CHANGED:Invoke(  bot, gold, silver, copper)
     elseif subtype == QUERY_TYPE.CURRENCY_OTHER then
         local currencyId = _parser:nextInt()
         local count = _parser:nextInt()
@@ -1253,7 +1141,7 @@ REP_MSG_HANDLERS[REPORT_TYPE.CURRENCY] = function(id,payload,bot,status)
             }
             botCurrencies[currencyId] = currency
         end
-        InvokeCallback(CALLBACK_TYPE.CURRENCY_CHANGED, bot, currencyId, count)
+        _EVENTS.CURRENCY_CHANGED:Invoke(  bot, currencyId, count)
     end
 end
 REP_MSG_HANDLERS[REPORT_TYPE.INVENTORY] = function(id,payload,bot,status) 
@@ -1275,7 +1163,7 @@ REP_MSG_HANDLERS[REPORT_TYPE.INVENTORY] = function(id,payload,bot,status)
         PlayerbotsPanel.SetBagItemData(bag, itemSlot, itemCount, itemLink)
     end
 
-    InvokeCallback(CALLBACK_TYPE.INVENTORY_CHANGED, bot)
+    _EVENTS.INVENTORY_CHANGED:Invoke(  bot)
 end
 REP_MSG_HANDLERS[REPORT_TYPE.TALENTS] = function(id,payload,bot,status) end
 REP_MSG_HANDLERS[REPORT_TYPE.SPELLS] = function(id,payload,bot,status) end
@@ -1386,7 +1274,7 @@ function _self:PARTY_MEMBERS_CHANGED()
         local inparty =  UnitInParty(name) ~= nil
         if inparty ~= status.party then
             status.party = inparty
-            InvokeCallback(CALLBACK_TYPE.STATUS_CHANGED, bot, status)
+            _EVENTS.STATUS_CHANGED:Invoke( bot, status)
         end
     end
 end

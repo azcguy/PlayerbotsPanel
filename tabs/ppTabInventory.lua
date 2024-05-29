@@ -110,13 +110,13 @@ local function HandleQuery_INVENTORY_CHANGED(bot)
 end
 
 function _self:OnActivate(tab)
-    _broker:RegisterGlobalCallback(PlayerbotsBrokerCallbackType.INVENTORY_CHANGED, HandleQuery_INVENTORY_CHANGED)
+    _broker.EVENTS.INVENTORY_CHANGED:Add(HandleQuery_INVENTORY_CHANGED)
     _updateHandler.onMouseButton:Add(HandleGlobalMouseClick)
     SetItemToUseOnAnotherItem(nil)
 end
 
 function _self:OnDeactivate(tab)
-    _broker:UnregisterGlobalCallback(PlayerbotsBrokerCallbackType.INVENTORY_CHANGED, HandleQuery_INVENTORY_CHANGED)
+    _broker.EVENTS.INVENTORY_CHANGED:Remove(HandleQuery_INVENTORY_CHANGED)
     _updateHandler.onMouseButton:Remove(HandleGlobalMouseClick)
     SetItemToUseOnAnotherItem(nil)
 end

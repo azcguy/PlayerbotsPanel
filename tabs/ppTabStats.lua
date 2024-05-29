@@ -26,11 +26,11 @@ function _self:Init(tab)
         function (subtab)
             print("SUBTAB ACTIVATE")
             _broker:StartQuery(PlayerbotsBrokerQueryType.STATS, PlayerbotsPanel.selectedBot)
-            _broker:RegisterGlobalCallback(PlayerbotsBrokerCallbackType.STATS_CHANGED, subtab.Update)
+            _broker.EVENTS.STATS_CHANGED:Add(subtab.Update, subtab)
             PlayerbotsPanel.events.onBotSelectionChanged:Add(subtab.Update, subtab)
         end, 
         function (subtab)
-            _broker:UnregisterGlobalCallback(PlayerbotsBrokerCallbackType.STATS_CHANGED, subtab.Update)
+            _broker.EVENTS.STATS_CHANGED:Remove(subtab.Update)
             PlayerbotsPanel.events.onBotSelectionChanged:Remove(subtab.Update)
         end)
 

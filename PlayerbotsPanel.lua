@@ -11,7 +11,6 @@ local _debug = PlayerbotsPanel.Debug
 local _broker = PlayerbotsBroker
 local _dbchar = {}
 local _dbaccount = {}
-local CALLBACK_TYPE = PlayerbotsBrokerCallbackType
 local QUERY_TYPE = PlayerbotsBrokerQueryType
 local COMMAND = PlayerbotsBrokerCommandType
 local _eval = _util.CompareAndReturn
@@ -887,7 +886,7 @@ function _self:SetupGearFrame()
         end
     end
 
-    _broker:RegisterGlobalCallback(CALLBACK_TYPE.EXPERIENCE_CHANGED, gearView.onBotExperienceChanged)
+    _broker.EVENTS.EXPERIENCE_CHANGED:Add(gearView.onBotExperienceChanged)
 
     local moneyposY = -15
     gearView.iconCopper = PlayerbotsGear:CreateTexture(nil, "OVERLAY")
@@ -929,7 +928,7 @@ function _self:SetupGearFrame()
         gearView.txtCopper:SetText(bot.currency.copper)
     end
 
-    _broker:RegisterGlobalCallback(CALLBACK_TYPE.MONEY_CHANGED, gearView.onCurrencyChanged)
+    _broker.EVENTS.MONEY_CHANGED:Add( gearView.onCurrencyChanged)
 
 
     _gearView.helpIcon = CreateFrame("Frame", nil, PlayerbotsGear)
@@ -1022,7 +1021,7 @@ function _self:SetupGearFrame()
         end
     end
 
-    _broker:RegisterGlobalCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, _gearView.onUpdatedEquipSlot)
+    _broker.EVENTS.EQUIP_SLOT_CHANGED:Add(_gearView.onUpdatedEquipSlot)
 
     _gearView.onUpdateAllSlots = function (bot)
         if _self.selectedBot and bot == _self.selectedBot then
@@ -1030,7 +1029,7 @@ function _self:SetupGearFrame()
         end
     end
 
-    _broker:RegisterGlobalCallback(CALLBACK_TYPE.EQUIPMENT_CHANGED, _gearView.onUpdateAllSlots)
+    _broker.EVENTS.EQUIPMENT_CHANGED:Add( _gearView.onUpdateAllSlots)
 end
 
 function _self:CreateWindow()
@@ -1106,9 +1105,9 @@ function _self:CreateBotSelectorButton(name)
             _self:UpdateGearView(name)
         end
     end
-    _broker:RegisterCallback(CALLBACK_TYPE.STATUS_CHANGED, name, rootFrame.statusUpdateHandler)
-    _broker:RegisterCallback(CALLBACK_TYPE.LEVEL_CHANGED, name, rootFrame.statusUpdateHandler)
-    _broker:RegisterCallback(CALLBACK_TYPE.EXPERIENCE_CHANGED, name, rootFrame.statusUpdateHandler)
+    _broker.EVENTS.STATUS_CHANGED:Add( rootFrame.statusUpdateHandler)
+    _broker.EVENTS.LEVEL_CHANGED:Add( rootFrame.statusUpdateHandler)
+    _broker.EVENTS.EXPERIENCE_CHANGED:Add( rootFrame.statusUpdateHandler)
 
 
     if rootFrame.secureBtn == nil then
