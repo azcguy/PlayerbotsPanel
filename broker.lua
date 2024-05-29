@@ -32,6 +32,25 @@ local CALLBACK_TYPE = PlayerbotsBrokerCallbackType
 local _callbacks = {} -- callbacks PER bot
 local _globalCallbacks = {} -- callbacks called for ANY bot
 
+_self.EVENTS = {}
+_self.EVENTS.STATUS_CHANGED = _util.CreateEvent()
+_self.EVENTS.STATS_CHANGED = _util.CreateEvent()
+_self.EVENTS.STATS_CHANGED_BASE = _util.CreateEvent()
+_self.EVENTS.STATS_CHANGED_RESISTS = _util.CreateEvent()
+_self.EVENTS.STATS_CHANGED_MELEE = _util.CreateEvent()
+_self.EVENTS.STATS_CHANGED_RANGED = _util.CreateEvent()
+_self.EVENTS.STATS_CHANGED_SPELL = _util.CreateEvent()
+_self.EVENTS.STATS_CHANGED_DEFENSES = _util.CreateEvent()
+_self.EVENTS.MONEY_CHANGED = _util.CreateEvent()
+_self.EVENTS.CURRENCY_CHANGED = _util.CreateEvent()
+_self.EVENTS.LEVEL_CHANGED = _util.CreateEvent()
+_self.EVENTS.EXPERIENCE_CHANGED = _util.CreateEvent()
+_self.EVENTS.SPEC_DATA_CHANGED = _util.CreateEvent()
+_self.EVENTS.ZONE_CHANGED = _util.CreateEvent()
+_self.EVENTS.EQUIP_SLOT_CHANGED = _util.CreateEvent()
+_self.EVENTS.EQUIPMENT_CHANGED = _util.CreateEvent()
+_self.EVENTS.INVENTORY_CHANGED = _util.CreateEvent()
+
 -- UPDATED_STATUS (bot, status)                 // Online/offline/party
 CALLBACK_TYPE.STATUS_CHANGED = {}
 -- Any stat changed 
@@ -756,12 +775,44 @@ queryTemplates[QUERY_TYPE.STATS] =
                     stats_base[i] = statData
                 end
                 
-                changed_base = evalChange(_parser:nextInt(), statData, "value")
                 changed_base = evalChange(_parser:nextInt(), statData, "effectiveStat")
                 changed_base = evalChange(_parser:nextInt(), statData, "positive")
                 changed_base = evalChange(_parser:nextInt(), statData, "negative")
+
+                if i == 1 then -- STRENGTH
+                    changed_base = evalChange(_parser:nextInt(), statData, "attackPower")
+                elseif i == 2 then -- AGILITY
+                    changed_base = evalChange(_parser:nextInt(), statData, "attackPower")
+                    changed_base = evalChange(_parser:nextFloat(), statData, "agilityCritChance")
+                elseif i == 3 then -- STAMINA
+                    changed_base = evalChange(_parser:nextInt(), statData, "maxHpModifier")
+                elseif i == 4 then
+                    changed_base = evalChange(_parser:nextFloat(), statData, "intellectCritChance")
+                elseif i == 5 then -- spirit
+                    changed_base = evalChange(_parser:nextInt(), statData, "healthRegenFromSpirit")
+                    changed_base = evalChange(_parser:nextFloat(), statData, "manaRegenFromSpirit")
+                end
             end
 
+            if not stats.armor then 
+                stats.armor = {}
+            end
+
+            if not stats.petArmor then
+                stats.petArmor = {}
+            end
+            local stat_armor = stats.armor
+            local stat_petarmor = stats.petArmor
+
+            changed_resists = evalChange(_parser:nextInt(), stat_armor, "effectiveStat")
+            changed_resists = evalChange(_parser:nextInt(), stat_armor, "positive")
+            changed_resists = evalChange(_parser:nextInt(), stat_armor, "negative")
+
+            changed_resists = evalChange(_parser:nextInt(), stat_petarmor, "effectiveStat")
+            changed_resists = evalChange(_parser:nextInt(), stat_petarmor, "positive")
+            changed_resists = evalChange(_parser:nextInt(), stat_petarmor, "negative")
+
+            
             for i=1, 5 do -- loop resists
                 --[[
                     1 - Arcane
@@ -779,7 +830,6 @@ queryTemplates[QUERY_TYPE.STATS] =
                     stats_res[i] = statData
                 end
 
-                changed_resists = evalChange(_parser:nextInt(), statData, "base")
                 changed_resists = evalChange(_parser:nextInt(), statData, "resistance")
                 changed_resists = evalChange(_parser:nextInt(), statData, "positive")
                 changed_resists = evalChange(_parser:nextInt(), statData, "negative")
@@ -968,7 +1018,7 @@ function _self:GenerateMessage(target, header, subtype, id, payload)
     if not id then id = 0 end
     local msg = BufferConcat(MSG_SEPARATOR, 4, _strchar(header), _strchar(subtype), _strformat("%03d", id), _eval(payload, payload, ""))
     _sendAddonMsg(_prefixCode, msg, "WHISPER", target)
-    _debug:LevelDebug(2, "|cff7afffb >> " .. target .. " |r "..  msg)
+    _debug:Debug(2, "|cff7afffb >> " .. target .. " |r "..  msg)
 end
 
 -- bots - reference to _dbchar.bots
@@ -1173,6 +1223,12 @@ REP_MSG_HANDLERS[REPORT_TYPE.ITEM_EQUIPPED] = function(id,payload,bot,status)
     if changed then
         InvokeCallback(CALLBACK_TYPE.EQUIP_SLOT_CHANGED, bot, slotNum)
     end
+end
+REP_MSG_HANDLERS[REPORT_TYPE.EXPERIENCE] = function(id,payload,bot,status) 
+    _parser:start(payload)
+    bot.level = _parser:nextInt()
+    bot.expLeft = _parser:nextFloat()
+    InvokeCallback(CALLBACK_TYPE.EXPERIENCE_CHANGED, bot)
 end
 REP_MSG_HANDLERS[REPORT_TYPE.CURRENCY] = function(id,payload,bot,status) 
     _parser:start(payload)

@@ -3,6 +3,16 @@ local _self = PlayerbotsPanel.Util
 local _data = PlayerbotsPanel.Data
 local _eval = _self.CompareAndReturn
 
+local _colorStringBuffer = PlayerbotsPanel.StringBuffer:Get("Util.colorString")
+
+function _self.ColorString(str, color)
+    _colorStringBuffer:Clear()
+    _colorStringBuffer:STRING('\124')
+    _colorStringBuffer:STRING(color.hex)
+    _colorStringBuffer:STRING(str)
+    _colorStringBuffer:STRING('\124r')
+    return _colorStringBuffer:ToString()
+end
 
 function  _self.CompareAndReturn(eval, ifTrue, ifFalse)
     if eval then
@@ -148,24 +158,33 @@ end
 function _self.CreateEvent()
     local event = {}
     event.callbacks = {}
+    event.contexts = {}
     event.Invoke = function (self, arg1, arg2, arg3, arg4)
         for k,cb in pairs(self.callbacks) do
             if cb then
-                cb(arg1, arg2, arg3, arg4)
+                local ctx = self.contexts[cb]
+                if ctx then
+                    cb(ctx, arg1, arg2, arg3, arg4)
+                else
+                    cb(arg1, arg2, arg3, arg4)
+                end
             end
         end
     end
 
-    event.Add = function (self, callback)
+    event.Add = function (self, callback, context)
         self.callbacks[callback] = callback
+        self.contexts[callback] = context
     end
 
     event.Remove = function (self, callback)
-        self.callbacks[callback] = nil        
+        self.callbacks[callback] = nil
+        self.contexts[callback] = nil
     end
 
     event.Clear = function (self)
         wipe(event.callbacks)
+        wipe(event.contexts)
     end
 
     return event

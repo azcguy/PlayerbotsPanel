@@ -14,6 +14,7 @@ _self.customSound = "GAMEDIALOGOPEN"
 
 local _tab = nil
 local _frame = nil
+local _defaultNameColor = _data.colors.gold
 
 local _rowColor = _data.CreateColorF(1,1,1,0.06)
 
@@ -23,14 +24,17 @@ function _self:Init(tab)
     --(self, icon, stringTooltip, name, onActivate, onDeactivate)
     local subtab = tab:CreateSubTab("Interface\\ICONS\\Spell_Nature_Strength.blp", "Stats", "Stats", 
         function (subtab)
-            _broker:RegisterGlobalCallback(PlayerbotsBrokerCallbackType.STATS_CHANGED, subtab.UpdateRows)
+            print("SUBTAB ACTIVATE")
             _broker:StartQuery(PlayerbotsBrokerQueryType.STATS, PlayerbotsPanel.selectedBot)
+            _broker:RegisterGlobalCallback(PlayerbotsBrokerCallbackType.STATS_CHANGED, subtab.Update)
+            PlayerbotsPanel.events.onBotSelectionChanged:Add(subtab.Update, subtab)
         end, 
         function (subtab)
-            _broker:UnregisterGlobalCallback(PlayerbotsBrokerCallbackType.STATS_CHANGED, subtab.UpdateRows)
+            _broker:UnregisterGlobalCallback(PlayerbotsBrokerCallbackType.STATS_CHANGED, subtab.Update)
+            PlayerbotsPanel.events.onBotSelectionChanged:Remove(subtab.Update)
         end)
 
-    self:SetupStatsSubtab(subtab)
+    self:SetupSubtab_Stats(subtab)
 
     tab:CreateSubTab("Interface\\ICONS\\Ability_Repair.blp",  "Skills", "Skills", 
         function (subtab)
@@ -43,7 +47,9 @@ function _self:Init(tab)
     tab:CreateSubTab("Interface\\ICONS\\Achievement_Reputation_01.blp", "Reputation", "Reputation", 
         function (subtab)
         end, nil)
+
 end
+
 
 function _self:OnActivate(tab)
 end
@@ -53,7 +59,7 @@ end
 
 --- Split the frame into multiple vertical colums, populate it with stat rendering row objects
 ---@param subtab table
-function _self:SetupStatsSubtab(subtab)
+function _self:SetupSubtab_Stats(subtab)
     local bot = PlayerbotsPanel.selectedBot
     local numColumns = 2
     local width = subtab:GetWidth()
@@ -63,7 +69,6 @@ function _self:SetupStatsSubtab(subtab)
     local columnHeight = height
 
     subtab.columns = {}
-
     for i=1, numColumns do
         local column = CreateFrame("Frame", "pp_stats_column_" .. i, subtab)
         tinsert(subtab.columns, column)
@@ -83,7 +88,20 @@ function _self:SetupStatsSubtab(subtab)
     _self.CreateStatRow(column1, _data.stats.RESIST_FROST)
     _self.CreateStatRow(column1, _data.stats.RESIST_SHADOW)
 
-    subtab.UpdateRows = function (self)
+    _self.CreateSeparator(column1, "Base Stats")
+    _self.CreateStatRow(column1, _data.stats.STRENGTH)
+    _self.CreateStatRow(column1, _data.stats.AGILITY)
+    _self.CreateStatRow(column1, _data.stats.STAMINA)
+    _self.CreateStatRow(column1, _data.stats.INTELLECT)
+    _self.CreateStatRow(column1, _data.stats.SPIRIT)
+    _self.CreateStatRow(column1, _data.stats.ARMOR)
+
+    _self.CreateSeparator(column1, "Melee")
+    _self.CreateStatRow(column1, _data.stats.DAMAGE_MELEE)
+
+
+    subtab.Update = function (self)
+        print("UPDATE")
         local bot = PlayerbotsPanel.selectedBot
         for c=1, getn(subtab.columns) do
             local rows = subtab.columns[c].rows
@@ -91,14 +109,14 @@ function _self:SetupStatsSubtab(subtab)
                 for r=1, getn(rows) do
                     local row = rows[r]
                     if row.onUpdate then
-                        row:onUpdate(bot.stats)
+                        row:onUpdate(bot)
                     end
                 end
             end
         end
     end
 
-    subtab:UpdateRows()
+    subtab:Update()
 end
 
 function _self.CreateStatRow(parent, statData)
@@ -125,8 +143,7 @@ function _self.CreateStatRow(parent, statData)
     frame:SetScript("OnEnter", function(self, motion)
         local tooltip = _tooltips.tooltipStat
         tooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT")
-        tooltip:AddLine(self.statData.name)
-        self.statData.onTooltip(self.botstats, tooltip)
+        self.statData:onTooltip(self.bot, self.botstats, tooltip)
         tooltip:Show()
     end)
     frame:SetScript("OnLeave", function(self, motion)
@@ -156,9 +173,14 @@ function _self.CreateStatRow(parent, statData)
     txtValue:SetJustifyH("RIGHT")
     txtValue:SetText("Value")
 
-    frame.onUpdate = function (self, botstats)
-        self.botstats = botstats
-        self.statData.onUpdateValue(self, botstats)
+    frame.onUpdate = function (self, bot)
+        self.bot = bot
+        self.botstats = bot.stats
+        local statData = self.statData
+        if not statData.nameColor then
+            _util.SetTextColor(txtName, _defaultNameColor)
+        end
+        self.statData.onUpdateValue(self, bot.stats)
     end
 
     parent.rows[vertIdx] = frame
@@ -172,7 +194,6 @@ function _self.CreateSeparator(parent, text)
     if not parent.rows then parent.rows = {} end
 
     local frame = CreateFrame("Frame", nil, parent)
-    local drawRowColor = vertIdx % 2 > 0
     local height = 16
     local padding = 10
     local width = parent:GetWidth() - (padding * 2)

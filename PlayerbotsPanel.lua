@@ -881,6 +881,14 @@ function _self:SetupGearFrame()
     gearView.botDescription:SetPoint("TOPLEFT", PlayerbotsGear, 5, -18)
     _util.SetTextColor(gearView.botDescription, _data.colors.gold)
 
+    gearView.onBotExperienceChanged = function(bot)
+        if bot == _self.selectedBot then
+            gearView.botDescription:SetText("Level " .. bot.level)
+        end
+    end
+
+    _broker:RegisterGlobalCallback(CALLBACK_TYPE.EXPERIENCE_CHANGED, gearView.onBotExperienceChanged)
+
     local moneyposY = -15
     gearView.iconCopper = PlayerbotsGear:CreateTexture(nil, "OVERLAY")
     gearView.iconCopper:SetPoint("TOPLEFT", PlayerbotsGear, 190, moneyposY)
@@ -1100,6 +1108,7 @@ function _self:CreateBotSelectorButton(name)
     end
     _broker:RegisterCallback(CALLBACK_TYPE.STATUS_CHANGED, name, rootFrame.statusUpdateHandler)
     _broker:RegisterCallback(CALLBACK_TYPE.LEVEL_CHANGED, name, rootFrame.statusUpdateHandler)
+    _broker:RegisterCallback(CALLBACK_TYPE.EXPERIENCE_CHANGED, name, rootFrame.statusUpdateHandler)
 
 
     if rootFrame.secureBtn == nil then
@@ -1555,6 +1564,7 @@ local function CreateTab(name, frame, tabNum, tabGroup)
 
     tab.subtabs = {}
     tab.activeSubTab = nil
+
 
     tab.SetSubTab = function (self, index)
         for i=0, getn(self.subtabs) do
