@@ -12,7 +12,7 @@ _self.TEX_ROOT_PATH = "Interface\\AddOns\\PlayerbotsPanel\\textures\\"
 -----------------------------------------------------------------------------
 
 local _sb_hexColor = PlayerbotsPanel.StringBuffer:Get("Data.hexColor")
-local _sb_stat = PlayerbotsPanel.StringBuffer:Get("Data.stat")
+local _b = PlayerbotsPanel.StringBuffer:Get("Data.stat")
 local _hexFormat = "%02X"
 local _format = string.format
 local _max = math.max
@@ -360,20 +360,20 @@ end
 local function onTooltipBaseStat(tooltip, group, data)
     local stat = group
     if not group then return end
-    _sb_stat:Clear()
-    _sb_stat:PushColor()
-    _sb_stat:STRING(data.name)
-    _sb_stat:SPACE()
-    _sb_stat:INT(stat.effectiveStat)
-    _sb_stat:STRING(" (")
-    _sb_stat:INT(stat.effectiveStat - stat.positive)
-    _sb_stat:PushColor(_green.hex)
-    _sb_stat:STRING("+")
-    _sb_stat:INT(stat.positive)
-    _sb_stat:PushColor()
-    _sb_stat:STRING(") ")
-    _sb_stat:PopColor()
-    tooltip:AddLine(_sb_stat:ToString())
+    _b:Clear()
+    _b:PushColor()
+    _b:STRING(data.name)
+    _b:SPACE()
+    _b:INT(stat.effectiveStat)
+    _b:STRING(" (")
+    _b:INT(stat.effectiveStat - stat.positive)
+    _b:PushColor(_green.hex)
+    _b:STRING("+")
+    _b:INT(stat.positive)
+    _b:PushColor()
+    _b:STRING(") ")
+    _b:PopColor()
+    tooltip:AddLine(_b:ToString())
 end
 
 --- Used by stat rows 
@@ -477,14 +477,14 @@ _self.stats = {
             local defaultTooltip = _G["DEFAULT_STAT3_TOOLTIP"]
             local baseStam = _min(20, group.effectiveStat);
             local moreStam = group.effectiveStat - baseStam;
-            _sb_stat:Clear()
-            _sb_stat:STRING(_format(defaultTooltip, (baseStam + (moreStam * HEALTH_PER_STAMINA)) * group.maxHpModifier ))
+            _b:Clear()
+            _b:STRING(_format(defaultTooltip, (baseStam + (moreStam * HEALTH_PER_STAMINA)) * group.maxHpModifier ))
             local petStam = ComputePetBonus(bot, "PET_BONUS_STAM", group.effectiveStat );
             if( petStam > 0 ) then
-                _sb_stat:NEWLINE()
-                _sb_stat:STRING(_format(PET_BONUS_TOOLTIP_STAMINA ,petStam ));
+                _b:NEWLINE()
+                _b:STRING(_format(PET_BONUS_TOOLTIP_STAMINA ,petStam ));
             end
-            tooltip:AddLine(_sb_stat:ToString())
+            tooltip:AddLine(_b:ToString())
         end
     },
     ["INTELLECT"] = {
@@ -502,17 +502,17 @@ _self.stats = {
             local hasMana = _self.CLASS_DATA[bot.class].hasMana
             local defaultTooltip = _G["DEFAULT_STAT4_TOOLTIP"]
             local intCrit = _eval(group.intellectCritChance, group.intellectCritChance, 0)
-            _sb_stat:Clear()
-            _sb_stat:STRING("")
+            _b:Clear()
+            _b:STRING("")
             if ( hasMana ) then
-                _sb_stat:STRING(_format( defaultTooltip, baseInt + moreInt * MANA_PER_INTELLECT, intCrit));
+                _b:STRING(_format( defaultTooltip, baseInt + moreInt * MANA_PER_INTELLECT, intCrit));
             end
             local petInt = ComputePetBonus("PET_BONUS_INT", group.effectiveStat );
             if( petInt > 0 ) then
-                _sb_stat:NEWLINE()
-                _sb_stat:STRING(_format( PET_BONUS_TOOLTIP_INTELLECT , petInt));
+                _b:NEWLINE()
+                _b:STRING(_format( PET_BONUS_TOOLTIP_INTELLECT , petInt));
             end
-            tooltip:AddLine(_sb_stat:ToString())
+            tooltip:AddLine(_b:ToString())
         end
     },
     ["SPIRIT"] = {
@@ -528,15 +528,15 @@ _self.stats = {
             local healthRegenFromSpirit = _eval(group.healthRegenFromSpirit, group.healthRegenFromSpirit, 0)
             local hasMana = _self.CLASS_DATA[bot.class].hasMana
 
-            _sb_stat:Clear()
-            _sb_stat:STRING(_format(defaultTooltip, healthRegenFromSpirit))
+            _b:Clear()
+            _b:STRING(_format(defaultTooltip, healthRegenFromSpirit))
             if ( hasMana ) then
                 local manaRegenFromSpirit = _eval(group.manaRegenFromSpirit, group.manaRegenFromSpirit, 0)
                 manaRegenFromSpirit = _floor( manaRegenFromSpirit * 5.0 );
-                _sb_stat:NEWLINE()
-                _sb_stat:STRING(_format(MANA_REGEN_FROM_SPIRIT, manaRegenFromSpirit));
+                _b:NEWLINE()
+                _b:STRING(_format(MANA_REGEN_FROM_SPIRIT, manaRegenFromSpirit));
             end
-            tooltip:AddLine(_sb_stat:ToString())
+            tooltip:AddLine(_b:ToString())
         end
     },
     ["ARMOR"] = {
@@ -550,18 +550,18 @@ _self.stats = {
             if not group then return end
             onTooltipBaseStat(tooltip, group, self)
             local armorReduction = GetArmorReduction(group.effectiveStat, bot.level);
-            _sb_stat:Clear()
-            _sb_stat:STRING(_format(DEFAULT_STATARMOR_TOOLTIP, armorReduction))
+            _b:Clear()
+            _b:STRING(_format(DEFAULT_STATARMOR_TOOLTIP, armorReduction))
             local petBonus = ComputePetBonus("PET_BONUS_ARMOR", group.effectiveStat);
             if( petBonus > 0 ) then
-                _sb_stat:NEWLINE()
-                _sb_stat:STRING(_format(PET_BONUS_TOOLTIP_ARMOR, petBonus))
+                _b:NEWLINE()
+                _b:STRING(_format(PET_BONUS_TOOLTIP_ARMOR, petBonus))
             end
-            tooltip:AddLine(_sb_stat:ToString())
+            tooltip:AddLine(_b:ToString())
         end
     },
     ["DAMAGE_MELEE"] = {
-        name = "Damage",
+        name = "Melee Damage",
         onUpdateValue = function (frame, botstats)
             local g = botstats.melee
             local minDamage = g.minMeleeDamage
@@ -581,22 +581,21 @@ _self.stats = {
 
             if ( totalBonus < 0.1 and totalBonus > -0.1 ) then totalBonus = 0.0 end
 
-            _sb_stat:Clear()
-            print("on update")
+            _b:Clear()
             local color = _eval(totalBonus > 0, _green, _red)
 
             if ( totalBonus == 0 ) then
-                _sb_stat:INT(displayMin)
-                _sb_stat:STRING(" - ")
-                _sb_stat:INT(displayMax)
+                _b:INT(displayMin)
+                _b:STRING(" - ")
+                _b:INT(displayMax)
             else
-                _sb_stat:PushColor(color)
-                _sb_stat:INT(displayMin)
-                _sb_stat:STRING(" - ")
-                _sb_stat:INT(displayMax)
-                _sb_stat:PopColor()
+                _b:PushColor(color)
+                _b:INT(displayMin)
+                _b:STRING(" - ")
+                _b:INT(displayMax)
+                _b:PopColor()
             end
-            frame.txtValue:SetText(_sb_stat:ToString())
+            frame.txtValue:SetText(_b:ToString())
         end,
         onTooltip = function (self, bot, botstats, tooltip)
             local g = botstats.melee
@@ -620,10 +619,13 @@ _self.stats = {
             local totalBonus = (fullDamage - baseDamage);
             local damagePerSecond = (_max(fullDamage,1) / speed);
             -- damage tooltip
-            _sb_stat:Clear()
-            _sb_stat:INT(_max(_floor(minDamage),1))
-            _sb_stat:STRING(" - ")
-            _sb_stat:INT(_max(_ceil(maxDamage),1))
+            tooltip:AddLine(INVTYPE_WEAPONMAINHAND, _white.r, _white.g, _white.b)
+
+            _b:Clear()
+            _b:INT(displayMin)
+            _b:STRING(" - ")
+            _b:INT(displayMax)
+
 
             if ( totalBonus < 0.1 and totalBonus > -0.1 ) then
                 totalBonus = 0.0;
@@ -632,32 +634,99 @@ _self.stats = {
             if ( totalBonus == 0 ) then
             else
                 if ( physicalBonusPos > 0 ) then
-                    _sb_stat:PushColor(_green)
-                    _sb_stat:STRING(" +")
-                    _sb_stat:INT(physicalBonusPos)
-                    _sb_stat:PopColor()
+                    _b:PushColor(_green)
+                    _b:STRING(" +")
+                    _b:INT(physicalBonusPos)
+                    _b:PopColor()
                 end
                 if ( physicalBonusNeg < 0 ) then
-                    _sb_stat:PushColor(_red)
-                    _sb_stat:STRING(" +")
-                    _sb_stat:INT(physicalBonusPos)
-                    _sb_stat:PopColor()
+                    _b:PushColor(_red)
+                    _b:STRING(" +")
+                    _b:INT(physicalBonusPos)
+                    _b:PopColor()
                 end
                 if ( percent > 1 ) then
-                    _sb_stat:PushColor(_green)
-                    _sb_stat:STRING(" x")
-                    _sb_stat:INT(floor(percent*100+0.5))
-                    _sb_stat:PopColor()
+                    _b:PushColor(_green)
+                    _b:STRING(" x")
+                    _b:INT(_floor(percent*100+0.5))
+                    _b:PopColor()
                 elseif ( percent < 1 ) then
-                    _sb_stat:PushColor(_red)
-                    _sb_stat:STRING(" x")
-                    _sb_stat:INT(floor(percent*100+0.5))
-                    _sb_stat:PopColor()
+                    _b:PushColor(_red)
+                    _b:STRING(" x")
+                    _b:INT(_floor(percent*100+0.5))
+                    _b:PopColor()
                 end
             end
 
-            tooltip:AddLine(_sb_stat:ToString())
+            tooltip:AddDoubleLine(_format(STAT_FORMAT, ATTACK_SPEED_SECONDS), _format("%.2f", speed))  
+            tooltip:AddDoubleLine(_format(STAT_FORMAT, DAMAGE), _b:ToString())  
+            tooltip:AddDoubleLine(_format(STAT_FORMAT, DAMAGE_PER_SECOND), _format("%.2f", damagePerSecond))  
+            tooltip:AddLine("\n")
+
+            if ( offhandSpeed > 0 ) then
+                minOffHandDamage = (minOffHandDamage / percent) - physicalBonusPos - physicalBonusNeg;
+                maxOffHandDamage = (maxOffHandDamage / percent) - physicalBonusPos - physicalBonusNeg;
+        
+                local offhandBaseDamage = (minOffHandDamage + maxOffHandDamage) * 0.5;
+                local offhandFullDamage = (offhandBaseDamage + physicalBonusPos + physicalBonusNeg) * percent;
+                local offhandDamagePerSecond = (_max(offhandFullDamage,1) / offhandSpeed);
+
+                _b:INT(_max(_floor(minOffHandDamage),1))
+                _b:STRING(" - ")
+                _b:INT(_max(_ceil(maxOffHandDamage),1))
+
+                if ( physicalBonusPos > 0 ) then
+                    _b:PushColor(_green)
+                    _b:STRING(" +")
+                    _b:INT(physicalBonusPos)
+                    _b:PopColor()
+                end
+                if ( physicalBonusNeg < 0 ) then
+                    _b:PushColor(_red)
+                    _b:STRING(" ")
+                    _b:INT(physicalBonusNeg)
+                    _b:PopColor()
+                end
+                _b:NEWLINE()
+                if ( percent > 1 ) then
+                    _b:PushColor(_green)
+                    _b:STRING(" x")
+                    _b:INT(_floor(percent*100+0.5))
+                    _b:PopColor()
+                elseif ( percent < 1 ) then
+                    _b:PushColor(_red)
+                    _b:STRING(" x")
+                    _b:INT(_floor(percent*100+0.5))
+                    _b:PopColor()
+                end
+
+                tooltip:AddLine(INVTYPE_WEAPONOFFHAND, _white.r, _white.g, _white.b)
+                tooltip:AddDoubleLine(_format(STAT_FORMAT, ATTACK_SPEED_SECONDS), _format("%.2f", offhandSpeed))
+                tooltip:AddDoubleLine(_format(STAT_FORMAT, DAMAGE), _b:ToString())
+                tooltip:AddDoubleLine(_format(STAT_FORMAT, DAMAGE_PER_SECOND), _format("%.1f", offhandDamagePerSecond))
+            end
         end
-    }
+    },
+    ["SPEED_MELEE"] = {
+        name = "Melee Speed",
+        onUpdateValue = function (frame, botstats)
+            local g = botstats.armor
+            onUpdateBaseStat(frame, g.effectiveStat, g.positive, g.negative)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local group = botstats.armor
+            if not group then return end
+            onTooltipBaseStat(tooltip, group, self)
+            local armorReduction = GetArmorReduction(group.effectiveStat, bot.level);
+            _b:Clear()
+            _b:STRING(_format(DEFAULT_STATARMOR_TOOLTIP, armorReduction))
+            local petBonus = ComputePetBonus("PET_BONUS_ARMOR", group.effectiveStat);
+            if( petBonus > 0 ) then
+                _b:NEWLINE()
+                _b:STRING(_format(PET_BONUS_TOOLTIP_ARMOR, petBonus))
+            end
+            tooltip:AddLine(_b:ToString())
+        end
+    },
 
 }

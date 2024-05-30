@@ -24,9 +24,8 @@ function _self:Init(tab)
     --(self, icon, stringTooltip, name, onActivate, onDeactivate)
     local subtab = tab:CreateSubTab("Interface\\ICONS\\Spell_Nature_Strength.blp", "Stats", "Stats", 
         function (subtab)
-            print("SUBTAB ACTIVATE")
-            _broker:StartQuery(PlayerbotsBrokerQueryType.STATS, PlayerbotsPanel.selectedBot)
             _broker.EVENTS.STATS_CHANGED:Add(subtab.Update, subtab)
+            _broker:StartQuery(PlayerbotsBrokerQueryType.STATS, PlayerbotsPanel.selectedBot)
             PlayerbotsPanel.events.onBotSelectionChanged:Add(subtab.Update, subtab)
         end, 
         function (subtab)
@@ -101,10 +100,9 @@ function _self:SetupSubtab_Stats(subtab)
 
 
     subtab.Update = function (self)
-        print("UPDATE")
         local bot = PlayerbotsPanel.selectedBot
-        for c=1, getn(subtab.columns) do
-            local rows = subtab.columns[c].rows
+        for c=1, getn(self.columns) do
+            local rows = self.columns[c].rows
             if rows then
                 for r=1, getn(rows) do
                     local row = rows[r]
@@ -167,11 +165,13 @@ function _self.CreateStatRow(parent, statData)
         _util.SetTextColor(txtName, statData.nameColor)
     end
 
-    local txtValue = frame:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+    local txtValue = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")--"NumberFontNormal")
     frame.txtValue = txtValue
+    
     txtValue:SetAllPoints(frame)
     txtValue:SetJustifyH("RIGHT")
     txtValue:SetText("Value")
+    _util.SetTextColor(txtValue, _data.colors.white)
 
     frame.onUpdate = function (self, bot)
         self.bot = bot

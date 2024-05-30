@@ -47,8 +47,19 @@ function _self:Get(debugName)
         end
     end
 
-    sbuffer.SPACE = function(self)
-        self:_STRING_INTERNAL(" ")
+    sbuffer.LINE = function(self, str, colorHex, debugName)
+        self:STRING(str, colorHex, debugName)
+        self:_STRING_INTERNAL("\n")
+    end
+
+    sbuffer.SPACE = function(self, count)
+        if not count then
+            self:_STRING_INTERNAL(" ")
+        else
+            for i=1, count do
+                self:_STRING_INTERNAL(" ")
+            end
+        end
     end
 
     sbuffer._STRING_INTERNAL = function (self, str)
