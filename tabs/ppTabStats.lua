@@ -18,6 +18,12 @@ local _defaultNameColor = _data.colors.gold
 
 local _rowColor = _data.CreateColorF(1,1,1,0.06)
 
+local function StartStatQuery(bot)
+    if bot == PlayerbotsPanel.selectedBot then
+        _broker:StartQuery(PlayerbotsBrokerQueryType.STATS, PlayerbotsPanel.selectedBot)
+    end
+end
+
 function _self:Init(tab)
     _tab = tab
     _frame = tab.innerframe
@@ -25,11 +31,16 @@ function _self:Init(tab)
     local subtab = tab:CreateSubTab("Interface\\ICONS\\Spell_Nature_Strength.blp", "Stats", "Stats", 
         function (subtab)
             _broker.EVENTS.STATS_CHANGED:Add(subtab.Update, subtab)
-            _broker:StartQuery(PlayerbotsBrokerQueryType.STATS, PlayerbotsPanel.selectedBot)
+            _broker.EVENTS.EQUIP_SLOT_CHANGED:Add(StartStatQuery)
+            _broker.EVENTS.EQUIPMENT_CHANGED:Add(StartStatQuery)
+            StartStatQuery(PlayerbotsPanel.selectedBot)
+            --_broker:StartQuery(PlayerbotsBrokerQueryType.STATS, PlayerbotsPanel.selectedBot)
             PlayerbotsPanel.events.onBotSelectionChanged:Add(subtab.Update, subtab)
         end, 
         function (subtab)
             _broker.EVENTS.STATS_CHANGED:Remove(subtab.Update)
+            _broker.EVENTS.EQUIP_SLOT_CHANGED:Remove(StartStatQuery)
+            _broker.EVENTS.EQUIPMENT_CHANGED:Remove(StartStatQuery)
             PlayerbotsPanel.events.onBotSelectionChanged:Remove(subtab.Update)
         end)
 
@@ -46,8 +57,8 @@ function _self:Init(tab)
     tab:CreateSubTab("Interface\\ICONS\\Achievement_Reputation_01.blp", "Reputation", "Reputation", 
         function (subtab)
         end, nil)
-
 end
+
 
 
 function _self:OnActivate(tab)
@@ -79,6 +90,7 @@ function _self:SetupSubtab_Stats(subtab)
         bgTex:SetAllPoints(column)
     end
 
+    
     local column1 = subtab.columns[1]
     _self.CreateSeparator(column1, "Resistances")
     _self.CreateStatRow(column1, _data.stats.RESIST_ARCANE)
@@ -86,7 +98,7 @@ function _self:SetupSubtab_Stats(subtab)
     _self.CreateStatRow(column1, _data.stats.RESIST_NATURE)
     _self.CreateStatRow(column1, _data.stats.RESIST_FROST)
     _self.CreateStatRow(column1, _data.stats.RESIST_SHADOW)
-
+    
     _self.CreateSeparator(column1, "Base Stats")
     _self.CreateStatRow(column1, _data.stats.STRENGTH)
     _self.CreateStatRow(column1, _data.stats.AGILITY)
@@ -94,11 +106,40 @@ function _self:SetupSubtab_Stats(subtab)
     _self.CreateStatRow(column1, _data.stats.INTELLECT)
     _self.CreateStatRow(column1, _data.stats.SPIRIT)
     _self.CreateStatRow(column1, _data.stats.ARMOR)
-
+    
     _self.CreateSeparator(column1, "Melee")
     _self.CreateStatRow(column1, _data.stats.DAMAGE_MELEE)
+    _self.CreateStatRow(column1, _data.stats.SPEED_MELEE)
+    _self.CreateStatRow(column1, _data.stats.ATTACK_POWER)
+    _self.CreateStatRow(column1, _data.stats.MELEE_HIT_RATING)
+    _self.CreateStatRow(column1, _data.stats.MELEE_CRIT)
+    _self.CreateStatRow(column1, _data.stats.EXPERTISE)
+    
+    local column2 = subtab.columns[2]
+    _self.CreateSeparator(column2, "Ranged")
+    _self.CreateStatRow(column2, _data.stats.DAMAGE_RANGED)
+    _self.CreateStatRow(column2, _data.stats.SPEED_RANGED)
+    _self.CreateStatRow(column2, _data.stats.RANGED_ATTACK_POWER)
+    _self.CreateStatRow(column2, _data.stats.RANGED_HIT_RATING)
+    _self.CreateStatRow(column2, _data.stats.RANGED_CRIT)
 
+    _self.CreateSeparator(column2, "Spell")
+    _self.CreateStatRow(column2, _data.stats.SPELL_BONUS_DAMAGE)
+    _self.CreateStatRow(column2, _data.stats.SPELL_BONUS_HEALING)
+    _self.CreateStatRow(column2, _data.stats.SPELL_HIT_RATING)
+    _self.CreateStatRow(column2, _data.stats.SPELL_CRIT)
+    _self.CreateStatRow(column2, _data.stats.SPELL_HASTE)
+    _self.CreateStatRow(column2, _data.stats.MANA_REGEN)
 
+    _self.CreateSeparator(column2, "Defenses")
+    _self.CreateStatRow(column2, _data.stats.ARMOR)
+    _self.CreateStatRow(column2, _data.stats.DEFENSE)
+    _self.CreateStatRow(column2, _data.stats.DODGE)
+    _self.CreateStatRow(column2, _data.stats.PARRY)
+    _self.CreateStatRow(column2, _data.stats.BLOCK)
+    _self.CreateStatRow(column2, _data.stats.RESILIENCE)
+
+    
     subtab.Update = function (self)
         local bot = PlayerbotsPanel.selectedBot
         for c=1, getn(self.columns) do
@@ -180,7 +221,7 @@ function _self.CreateStatRow(parent, statData)
         if not statData.nameColor then
             _util.SetTextColor(txtName, _defaultNameColor)
         end
-        self.statData.onUpdateValue(self, bot.stats)
+        self.statData.onUpdateValue(self, bot, bot.stats)
     end
 
     parent.rows[vertIdx] = frame

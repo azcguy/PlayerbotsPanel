@@ -352,24 +352,26 @@ function _self:ValidateBotData(bot)
     EnsureField(bot.talents, "specs", {})
 
     EnsureField(bot.talents.specs,1, {})
-    EnsureField(bot.talents.specs[1],"primary", 1)
-    EnsureField(bot.talents.specs[1],"tabs", {})
-    EnsureField(bot.talents.specs[1].tabs,1, {})
-    EnsureField(bot.talents.specs[1].tabs[1], "points", 0)
-    EnsureField(bot.talents.specs[1].tabs,2, {})
-    EnsureField(bot.talents.specs[1].tabs[2], "points", 0)
-    EnsureField(bot.talents.specs[1].tabs,3, {})
-    EnsureField(bot.talents.specs[1].tabs[3], "points", 0)
+    local spec1 = bot.talents.specs[1]
+    EnsureField(spec1,"primary", 1)
+    EnsureField(spec1,"tabs", {})
+    EnsureField(spec1.tabs,1, {})
+    EnsureField(spec1.tabs[1], "points", 0)
+    EnsureField(spec1.tabs,2, {})
+    EnsureField(spec1.tabs[2], "points", 0)
+    EnsureField(spec1.tabs,3, {})
+    EnsureField(spec1.tabs[3], "points", 0)
 
     EnsureField(bot.talents.specs,2, {})
-    EnsureField(bot.talents.specs[2],"primary", 1)
-    EnsureField(bot.talents.specs[2],"tabs", {})
-    EnsureField(bot.talents.specs[2].tabs,1, {})
-    EnsureField(bot.talents.specs[2].tabs[1], "points", 0)
-    EnsureField(bot.talents.specs[2].tabs,2, {})
-    EnsureField(bot.talents.specs[2].tabs[2], "points", 0)
-    EnsureField(bot.talents.specs[2].tabs,3, {})
-    EnsureField(bot.talents.specs[2].tabs[3], "points", 0)
+    local spec2 = bot.talents.specs[2]
+    EnsureField(spec2,"primary", 1)
+    EnsureField(spec2,"tabs", {})
+    EnsureField(spec2.tabs,1, {})
+    EnsureField(spec2.tabs[1], "points", 0)
+    EnsureField(spec2.tabs,2, {})
+    EnsureField(spec2.tabs[2], "points", 0)
+    EnsureField(spec2.tabs,3, {})
+    EnsureField(spec2.tabs[3], "points", 0)
 
     EnsureField(bot, "currency", {})
     EnsureField(bot.currency, "copper", 0)
@@ -383,28 +385,165 @@ function _self:ValidateBotData(bot)
     end
     
     EnsureField(bot, "bags", {})
-    EnsureField(bot.bags, -2, _self:CreateBagData("Keyring", 32))
-    EnsureField(bot.bags, -1, _self:CreateBagData("Bank Storage", 28)) -- bank 0
-    EnsureField(bot.bags, 0,  _self:CreateBagData("Backpack", 16)) 
-    EnsureField(bot.bags, 1,  _self:CreateBagData(nil, 0))
-    EnsureField(bot.bags, 2,  _self:CreateBagData(nil, 0))
-    EnsureField(bot.bags, 3,  _self:CreateBagData(nil, 0))
-    EnsureField(bot.bags, 4,  _self:CreateBagData(nil, 0))
-    EnsureField(bot.bags, 5,  _self:CreateBagData(nil, 0)) -- bank 1
-    EnsureField(bot.bags, 6,  _self:CreateBagData(nil, 0)) 
-    EnsureField(bot.bags, 7,  _self:CreateBagData(nil, 0)) 
-    EnsureField(bot.bags, 8,  _self:CreateBagData(nil, 0)) 
-    EnsureField(bot.bags, 9,  _self:CreateBagData(nil, 0)) 
-    EnsureField(bot.bags, 10, _self:CreateBagData(nil, 0)) 
-    EnsureField(bot.bags, 11, _self:CreateBagData(nil, 0)) -- bank 7
+    local bags = bot.bags
+    EnsureField(bags, -2, _self:CreateBagData("Keyring", 32))
+    EnsureField(bags, -1, _self:CreateBagData("Bank Storage", 28)) -- bank 0
+    EnsureField(bags, 0,  _self:CreateBagData("Backpack", 16)) 
+    EnsureField(bags, 1,  _self:CreateBagData(nil, 0))
+    EnsureField(bags, 2,  _self:CreateBagData(nil, 0))
+    EnsureField(bags, 3,  _self:CreateBagData(nil, 0))
+    EnsureField(bags, 4,  _self:CreateBagData(nil, 0))
+    EnsureField(bags, 5,  _self:CreateBagData(nil, 0)) -- bank 1
+    EnsureField(bags, 6,  _self:CreateBagData(nil, 0)) 
+    EnsureField(bags, 7,  _self:CreateBagData(nil, 0)) 
+    EnsureField(bags, 8,  _self:CreateBagData(nil, 0)) 
+    EnsureField(bags, 9,  _self:CreateBagData(nil, 0)) 
+    EnsureField(bags, 10, _self:CreateBagData(nil, 0)) 
+    EnsureField(bags, 11, _self:CreateBagData(nil, 0)) -- bank 7
 
     EnsureField(bot, "stats", {})
     EnsureField(bot.stats, "base", {})
+    local function ensureBaseStat(index)
+        EnsureField(bot.stats.base, index, {})
+        EnsureField(bot.stats.base[index], "effectiveStat", 0)
+        EnsureField(bot.stats.base[index], "positive", 0)
+        EnsureField(bot.stats.base[index], "negative", 0)
+    end
+
+    for i=1, 5 do
+        ensureBaseStat(i)
+        if i == 1 then -- STRENGTH
+            EnsureField(bot.stats.base[i], "attackPower", 0)
+        elseif i == 2 then -- AGILITY
+            EnsureField(bot.stats.base[i], "attackPower", 0)
+            EnsureField(bot.stats.base[i], "agilityCritChance", 0)
+        elseif i == 3 then -- STAMINA
+            EnsureField(bot.stats.base[i], "maxHpModifier", 0)
+        elseif i == 4 then
+            EnsureField(bot.stats.base[i], "intellectCritChance", 0)
+        elseif i == 5 then -- spirit
+            EnsureField(bot.stats.base[i], "healthRegenFromSpirit", 0)
+            EnsureField(bot.stats.base[i], "manaRegenFromSpirit", 0)
+        end
+    end
+
     EnsureField(bot.stats, "resists", {})
+    local function ensureResist(index)
+        EnsureField(bot.stats.resists, index, {})
+        EnsureField(bot.stats.resists[index], "resistance", 0)
+        EnsureField(bot.stats.resists[index], "positive", 0)
+        EnsureField(bot.stats.resists[index], "negative", 0)
+    end
+
+    for i=1, 5 do
+        ensureResist(i)
+    end
+
     EnsureField(bot.stats, "melee", {})
+    local melee = bot.stats.melee
+    EnsureField(melee, "minMeleeDamage", 0)
+    EnsureField(melee, "maxMeleeDamage", 0)
+    EnsureField(melee, "minMeleeOffHandDamage", 0)
+    EnsureField(melee, "maxMeleeOffHandDamage", 0)
+    EnsureField(melee, "meleePhysicalBonusPositive", 0)
+    EnsureField(melee, "meleePhysicalBonusNegative", 0)
+    EnsureField(melee, "meleeDamageBuffPercent", 0)
+    EnsureField(melee, "meleeSpeed", 0)
+    EnsureField(melee, "meleeOffhandSpeed", 0)
+    EnsureField(melee, "meleeAtkPowerBase", 0)
+    EnsureField(melee, "meleeAtkPowerPositive", 0)
+    EnsureField(melee, "meleeAtkPowerNegative", 0)
+    EnsureField(melee, "meleeHaste", 0)
+    EnsureField(melee, "meleeHasteBonus", 0)
+    EnsureField(melee, "meleeCritRating", 0)
+    EnsureField(melee, "meleeCritRatingBonus", 0)
+    EnsureField(melee, "meleeCritChance", 0)
+    EnsureField(melee, "meleeHit", 0)
+    EnsureField(melee, "meleeHitBonus", 0)
+    EnsureField(melee, "armorPen", 0)
+    EnsureField(melee, "armorPenPercent", 0)
+    EnsureField(melee, "armorPenBonus", 0)
+    EnsureField(melee, "expertise", 0)
+    EnsureField(melee, "offhandExpertise", 0)
+    EnsureField(melee, "expertisePercent", 0)
+    EnsureField(melee, "expertiseOffhandPercent", 0)
+    EnsureField(melee, "expertiseRating", 0)
+    EnsureField(melee, "expertiseRatingBonus", 0)
+
     EnsureField(bot.stats, "ranged", {})
+    local ranged = bot.stats.ranged
+
+    EnsureField(ranged, "rangedAttackSpeed", 0)
+    EnsureField(ranged, "rangedMinDamage", 0)
+    EnsureField(ranged, "rangedMaxDamage", 0)
+    EnsureField(ranged, "rangedPhysicalBonusPositive", 0)
+    EnsureField(ranged, "rangedPhysicalBonusNegative", 0)
+    EnsureField(ranged, "rangedDamageBuffPercent", 0)
+    EnsureField(ranged, "rangedAttackPower", 0)
+    EnsureField(ranged, "rangedAttackPowerPositive", 0)
+    EnsureField(ranged, "rangedAttackPowerNegative", 0)
+    EnsureField(ranged, "rangedHaste", 0)
+    EnsureField(ranged, "rangedHasteBonus", 0)
+    EnsureField(ranged, "rangedCritRating", 0)
+    EnsureField(ranged, "rangedCritRatingBonus", 0)
+    EnsureField(ranged, "rangedCritChance", 0)
+    EnsureField(ranged, "rangedHit", 0)
+    EnsureField(ranged, "rangedHitBonus", 0)
+
     EnsureField(bot.stats, "spell", {})
+    local spell = bot.stats.spell
+
+    EnsureField(spell, "spellBonusDamage", {})
+
+    for i=2, MAX_SPELL_SCHOOLS do 
+        EnsureField(spell.spellBonusDamage, i, 0)
+    end
+
+    EnsureField(spell, "spellBonusHealing", 0)
+    EnsureField(spell, "spellHit", 0)
+    EnsureField(spell, "spellHitBonus", 0)
+    EnsureField(spell, "spellPenetration", 0)
+
+    EnsureField(spell, "spellCritChance", {})
+    for i=2, MAX_SPELL_SCHOOLS do 
+        EnsureField(spell.spellCritChance, i, 0)
+    end
+    EnsureField(spell, "spellCritRating", 0)
+    EnsureField(spell, "spellCritRatingBonus", 0)
+    EnsureField(spell, "spellHaste", 0)
+    EnsureField(spell, "spellHasteBonus", 0)
+    EnsureField(spell, "baseManaRegen", 0)
+    EnsureField(spell, "castingManaRegen", 0)
+
     EnsureField(bot.stats, "defenses", {})
+    local defenses = bot.stats.defenses
+
+    EnsureField(defenses, "effectiveArmor", 0)
+    EnsureField(defenses, "armorPositive", 0)
+    EnsureField(defenses, "armorNegative", 0)
+    EnsureField(defenses, "effectivePetArmor", 0)
+    EnsureField(defenses, "armorPetPositive", 0)
+    EnsureField(defenses, "armorPetNegative", 0)
+    EnsureField(defenses, "baseDefense", 0)
+    EnsureField(defenses, "modifierDefense", 0)
+    EnsureField(defenses, "defenseRating", 0)
+    EnsureField(defenses, "defenseRatingBonus", 0)
+    EnsureField(defenses, "dodgeChance", 0)
+    EnsureField(defenses, "dodgeRating", 0)
+    EnsureField(defenses, "dodgeRatingBonus", 0)
+    EnsureField(defenses, "blockChance", 0)
+    EnsureField(defenses, "shieldBlock", 0)
+    EnsureField(defenses, "blockRating", 0)
+    EnsureField(defenses, "blockRatingBonus", 0)
+    EnsureField(defenses, "parryChance", 0)
+    EnsureField(defenses, "parryRating", 0)
+    EnsureField(defenses, "parryRatingBonus", 0)
+    EnsureField(defenses, "meleeResil", 0)
+    EnsureField(defenses, "meleeResilBonus", 0)
+    EnsureField(defenses, "rangedResil", 0)
+    EnsureField(defenses, "rangedResilBonus", 0)
+    EnsureField(defenses, "spellResil", 0)
+    EnsureField(defenses, "spellResilBonus", 0)
 end
 
 function _self:RegisterByName(name)

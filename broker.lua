@@ -630,16 +630,16 @@ queryTemplates[QUERY_TYPE.STATS] =
         local stats = bot.stats
         local subtype = _parser:nextCharAsByte()
 
-        local changed_base = false
-        local changed_resists = false
-        local changed_melee = false
-        local changed_ranged = false
-        local changed_spell = false
-        local changed_defenses = false
+        local c_base = false
+        local c_resists = false
+        local c_melee = false
+        local c_ranged = false
+        local c_spell = false
+        local c_defenses = false
 
-        local function evalChange(change, newval, obj, oldval)
-            if newval ~= obj[oldval] then
-                obj[oldval] = newval
+        local function evalChange(change, newval, obj, oldvalKey)
+            if newval ~= obj[oldvalKey] then
+                obj[oldvalKey] = newval
                 return true
             else
                 return change
@@ -660,49 +660,24 @@ queryTemplates[QUERY_TYPE.STATS] =
                 ]]
                 -- format > value : effectiveStat : positive : negative
                 local statData = stats_base[i]
-                if not statData then
-                    changed_base = true
-                    statData = {}
-                    stats_base[i] = statData
-                end
-                
-                changed_base = evalChange(changed_base, _parser:nextInt(), statData, "effectiveStat")
-                changed_base = evalChange(changed_base, _parser:nextInt(), statData, "positive")
-                changed_base = evalChange(changed_base, _parser:nextInt(), statData, "negative")
+                c_base = evalChange(c_base, _parser:nextInt(), statData, "effectiveStat")
+                c_base = evalChange(c_base, _parser:nextInt(), statData, "positive")
+                c_base = evalChange(c_base, _parser:nextInt(), statData, "negative")
 
                 if i == 1 then -- STRENGTH
-                    changed_base = evalChange(changed_base,_parser:nextInt(), statData, "attackPower")
+                    c_base = evalChange(c_base,_parser:nextInt(), statData, "attackPower")
                 elseif i == 2 then -- AGILITY
-                    changed_base = evalChange(changed_base,_parser:nextInt(), statData, "attackPower")
-                    changed_base = evalChange(changed_base,_parser:nextFloat(), statData, "agilityCritChance")
+                    c_base = evalChange(c_base,_parser:nextInt(), statData, "attackPower")
+                    c_base = evalChange(c_base,_parser:nextFloat(), statData, "agilityCritChance")
                 elseif i == 3 then -- STAMINA
-                    changed_base = evalChange(changed_base,_parser:nextInt(), statData, "maxHpModifier")
+                    c_base = evalChange(c_base,_parser:nextInt(), statData, "maxHpModifier")
                 elseif i == 4 then
-                    changed_base = evalChange(changed_base,_parser:nextFloat(), statData, "intellectCritChance")
+                    c_base = evalChange(c_base,_parser:nextFloat(), statData, "intellectCritChance")
                 elseif i == 5 then -- spirit
-                    changed_base = evalChange(changed_base,_parser:nextInt(), statData, "healthRegenFromSpirit")
-                    changed_base = evalChange(changed_base,_parser:nextFloat(), statData, "manaRegenFromSpirit")
+                    c_base = evalChange(c_base,_parser:nextInt(), statData, "healthRegenFromSpirit")
+                    c_base = evalChange(c_base,_parser:nextFloat(), statData, "manaRegenFromSpirit")
                 end
             end
-
-            if not stats.armor then 
-                stats.armor = {}
-            end
-
-            if not stats.petArmor then
-                stats.petArmor = {}
-            end
-            local stat_armor = stats.armor
-            local stat_petarmor = stats.petArmor
-
-            changed_resists = evalChange(changed_resists,_parser:nextInt(), stat_armor, "effectiveStat")
-            changed_resists = evalChange(changed_resists,_parser:nextInt(), stat_armor, "positive")
-            changed_resists = evalChange(changed_resists,_parser:nextInt(), stat_armor, "negative")
-
-            changed_resists = evalChange(changed_resists,_parser:nextInt(), stat_petarmor, "effectiveStat")
-            changed_resists = evalChange(changed_resists,_parser:nextInt(), stat_petarmor, "positive")
-            changed_resists = evalChange(changed_resists,_parser:nextInt(), stat_petarmor, "negative")
-
             
             for i=1, 5 do -- loop resists
                 --[[
@@ -715,60 +690,148 @@ queryTemplates[QUERY_TYPE.STATS] =
                 -- format > base : resistance : positive : negative
 
                 local statData = stats_res[i]
-                if not statData then
-                    changed_resists = true
-                    statData = {}
-                    stats_res[i] = statData
-                end
-
-                changed_resists = evalChange(changed_resists,_parser:nextInt(), statData, "resistance")
-                changed_resists = evalChange(changed_resists,_parser:nextInt(), statData, "positive")
-                changed_resists = evalChange(changed_resists,_parser:nextInt(), statData, "negative")
+                c_resists = evalChange(c_resists,_parser:nextInt(), statData, "resistance")
+                c_resists = evalChange(c_resists,_parser:nextInt(), statData, "positive")
+                c_resists = evalChange(c_resists,_parser:nextInt(), statData, "negative")
             end
 
-            changed_base = evalChange(changed_base, _parser:nextInt(), stats, "expertise")
-            changed_base = evalChange(changed_base, _parser:nextFloat(), stats, "expertisePercent")
-            changed_base = evalChange(changed_base, _parser:nextFloat(), stats, "expertiseOffhandPercent")
+
 
         elseif subtype == QUERY_TYPE.STATS_MELEE then
             local melee = stats.melee
 
-            changed_melee = evalChange(changed_melee, _parser:nextFloat(), melee, "minMeleeDamage")
-            changed_melee = evalChange(changed_melee, _parser:nextFloat(), melee, "maxMeleeDamage")
-            changed_melee = evalChange(changed_melee, _parser:nextFloat(), melee, "minMeleeOffHandDamage")
-            changed_melee = evalChange(changed_melee, _parser:nextFloat(), melee, "maxMeleeOffHandDamage")
-            changed_melee = evalChange(changed_melee, _parser:nextInt(), melee, "meleePhysicalBonusPositive")
-            changed_melee = evalChange(changed_melee, _parser:nextInt(), melee, "meleePhysicalBonusNegative")
-            changed_melee = evalChange(changed_melee, _parser:nextFloat(), melee, "meleeDamageBuffPercent")
+            c_melee = evalChange(c_melee, _parser:nextFloat(), melee, "minMeleeDamage")
+            c_melee = evalChange(c_melee, _parser:nextFloat(), melee, "maxMeleeDamage")
+            c_melee = evalChange(c_melee, _parser:nextFloat(), melee, "minMeleeOffHandDamage")
+            c_melee = evalChange(c_melee, _parser:nextFloat(), melee, "maxMeleeOffHandDamage")
+            c_melee = evalChange(c_melee, _parser:nextInt(), melee, "meleePhysicalBonusPositive")
+            c_melee = evalChange(c_melee, _parser:nextInt(), melee, "meleePhysicalBonusNegative")
+            c_melee = evalChange(c_melee, _parser:nextFloat(), melee, "meleeDamageBuffPercent")
 
-            changed_melee = evalChange(changed_melee,_parser:nextFloat(), melee, "meleeSpeed")
-            changed_melee = evalChange(changed_melee,_parser:nextFloat(), melee, "meleeOffhandSpeed")
+            c_melee = evalChange(c_melee,_parser:nextFloat(), melee, "meleeSpeed")
+            c_melee = evalChange(c_melee,_parser:nextFloat(), melee, "meleeOffhandSpeed")
 
-            changed_melee = evalChange(changed_melee,_parser:nextInt(), melee, "meleeAtkPowerBase")
-            changed_melee = evalChange(changed_melee,_parser:nextInt(), melee, "meleeAtkPowerPositive")
-            changed_melee = evalChange(changed_melee,_parser:nextInt(), melee, "meleeAtkPowerNegative")
+            c_melee = evalChange(c_melee,_parser:nextInt(), melee, "meleeAtkPowerBase")
+            c_melee = evalChange(c_melee,_parser:nextInt(), melee, "meleeAtkPowerPositive")
+            c_melee = evalChange(c_melee,_parser:nextInt(), melee, "meleeAtkPowerNegative")
 
-            changed_melee = evalChange(changed_melee,_parser:nextInt(), melee, "meleeHaste")
-            changed_melee = evalChange(changed_melee,_parser:nextFloat(), melee, "meleeHasteBonus")
+            c_melee = evalChange(c_melee,_parser:nextInt(), melee, "meleeHaste")
+            c_melee = evalChange(c_melee,_parser:nextFloat(), melee, "meleeHasteBonus")
 
-            changed_melee = evalChange(changed_melee,_parser:nextInt(), melee, "meleeCrit")
-            changed_melee = evalChange(changed_melee,_parser:nextFloat(), melee, "meleeCritBonus")
+            c_melee = evalChange(c_melee,_parser:nextInt(), melee, "meleeCritRating")
+            c_melee = evalChange(c_melee,_parser:nextFloat(), melee, "meleeCritRatingBonus")
+            c_melee = evalChange(c_melee,_parser:nextFloat(), melee, "meleeCritChance")
 
-            changed_melee = evalChange(changed_melee,_parser:nextInt(), melee, "meleeHit")
-            changed_melee = evalChange(changed_melee,_parser:nextFloat(), melee, "meleeHitBonus")
+            c_melee = evalChange(c_melee,_parser:nextInt(), melee, "meleeHit")
+            c_melee = evalChange(c_melee,_parser:nextFloat(), melee, "meleeHitBonus")
 
-            changed_melee = evalChange(changed_melee,_parser:nextInt(), melee, "meleeResil")
-            changed_melee = evalChange(changed_melee,_parser:nextFloat(), melee, "meleeResilBonus")
+            c_melee = evalChange(c_melee,_parser:nextInt(), melee, "armorPen")
+            c_melee = evalChange(c_melee,_parser:nextFloat(), melee, "armorPenPercent")
+            c_melee = evalChange(c_melee,_parser:nextFloat(), melee, "armorPenBonus")
+
+            c_melee = evalChange(c_melee, _parser:nextInt(), melee, "expertise")
+            c_melee = evalChange(c_melee, _parser:nextInt(), melee, "offhandExpertise")
+            c_melee = evalChange(c_melee, _parser:nextFloat(), melee, "expertisePercent")
+            c_melee = evalChange(c_melee, _parser:nextFloat(), melee, "expertiseOffhandPercent")
+            c_melee = evalChange(c_melee, _parser:nextInt(), melee, "expertiseRating")
+            c_melee = evalChange(c_melee, _parser:nextFloat(), melee, "expertiseRatingBonus")
+        elseif subtype == QUERY_TYPE.STATS_RANGED then
+            local ranged = stats.ranged
+
+            c_ranged = evalChange(c_ranged, _parser:nextFloat(), ranged, "rangedAttackSpeed")
+            c_ranged = evalChange(c_ranged, _parser:nextFloat(), ranged, "rangedMinDamage")
+            c_ranged = evalChange(c_ranged, _parser:nextFloat(), ranged, "rangedMaxDamage")
+            c_ranged = evalChange(c_ranged, _parser:nextInt(), ranged, "rangedPhysicalBonusPositive")
+            c_ranged = evalChange(c_ranged, _parser:nextInt(), ranged, "rangedPhysicalBonusNegative")
+            c_ranged = evalChange(c_ranged, _parser:nextFloat(), ranged, "rangedDamageBuffPercent")
+
+            c_ranged = evalChange(c_ranged, _parser:nextInt(), ranged, "rangedAttackPower")
+            c_ranged = evalChange(c_ranged, _parser:nextInt(), ranged, "rangedAttackPowerPositive")
+            c_ranged = evalChange(c_ranged, _parser:nextInt(), ranged, "rangedAttackPowerNegative")
+
+            c_ranged = evalChange(c_ranged, _parser:nextInt(), ranged, "rangedHaste")
+            c_ranged = evalChange(c_ranged, _parser:nextFloat(), ranged, "rangedHasteBonus")
+
+            c_ranged = evalChange(c_ranged, _parser:nextInt(), ranged, "rangedCritRating")
+            c_ranged = evalChange(c_ranged, _parser:nextFloat(), ranged, "rangedCritRatingBonus")
+            c_ranged = evalChange(c_ranged, _parser:nextFloat(), ranged, "rangedCritChance")
+
+            c_ranged = evalChange(c_ranged, _parser:nextInt(), ranged, "rangedHit")
+            c_ranged = evalChange(c_ranged, _parser:nextFloat(), ranged, "rangedHitBonus")
+
+        elseif subtype == QUERY_TYPE.STATS_SPELL then
+            local spell = stats.spell
+
+            for i=2, MAX_SPELL_SCHOOLS do -- skip physical, start at 2
+                c_spell = evalChange(c_spell, _parser:nextInt(), spell.spellBonusDamage, i)
+            end
+        
+            c_spell = evalChange(c_spell, _parser:nextInt(), spell, "spellBonusHealing")
+        
+            c_spell = evalChange(c_spell, _parser:nextInt(), spell, "spellHit")
+            c_spell = evalChange(c_spell, _parser:nextFloat(), spell, "spellHitBonus")
+            
+            c_spell = evalChange(c_spell, _parser:nextFloat(), spell, "spellPenetration")
+
+            for i=2, MAX_SPELL_SCHOOLS do -- skip physical, start at 2
+                c_spell = evalChange(c_spell, _parser:nextFloat(), spell.spellCritChance, i)
+            end
+            
+            c_spell = evalChange(c_spell, _parser:nextInt(), spell, "spellCritRating")
+            c_spell = evalChange(c_spell, _parser:nextFloat(), spell, "spellCritRatingBonus")
+
+            c_spell = evalChange(c_spell, _parser:nextInt(), spell, "spellHaste")
+            c_spell = evalChange(c_spell, _parser:nextFloat(), spell, "spellHasteBonus")
+
+            c_spell = evalChange(c_spell, _parser:nextFloat(), spell, "baseManaRegen")
+            c_spell = evalChange(c_spell, _parser:nextFloat(), spell, "castingManaRegen")
+        elseif subtype == QUERY_TYPE.STATS_DEFENSES then
+            local defenses = stats.defenses
+            
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "effectiveArmor")
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "armorPositive")
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "armorNegative")
+
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "effectivePetArmor")
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "armorPetPositive")
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "armorPetNegative")
+
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "baseDefense")
+            c_defenses = evalChange(c_defenses, _parser:nextFloat(), defenses, "modifierDefense")
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "defenseRating")
+            c_defenses = evalChange(c_defenses, _parser:nextFloat(), defenses, "defenseRatingBonus")
+
+            c_defenses = evalChange(c_defenses, _parser:nextFloat(), defenses, "dodgeChance")
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "dodgeRating")
+            c_defenses = evalChange(c_defenses, _parser:nextFloat(), defenses, "dodgeRatingBonus")
+
+            c_defenses = evalChange(c_defenses, _parser:nextFloat(), defenses, "blockChance")
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "shieldBlock")
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "blockRating")
+            c_defenses = evalChange(c_defenses, _parser:nextFloat(), defenses, "blockRatingBonus")
+
+            c_defenses = evalChange(c_defenses, _parser:nextFloat(), defenses, "parryChance")
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "parryRating")
+            c_defenses = evalChange(c_defenses, _parser:nextFloat(), defenses, "parryRatingBonus")
+
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "meleeResil")
+            c_defenses = evalChange(c_defenses, _parser:nextFloat(), defenses, "meleeResilBonus")
+
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "rangedResil")
+            c_defenses = evalChange(c_defenses, _parser:nextFloat(), defenses, "rangedResilBonus")
+
+            c_defenses = evalChange(c_defenses, _parser:nextInt(), defenses, "spellResil")
+            c_defenses = evalChange(c_defenses, _parser:nextFloat(), defenses, "spellResilBonus")
         end
-        if changed_base then _EVENTS.STATS_CHANGED_BASE:Invoke(bot)  end
-        if changed_resists then _EVENTS.STATS_CHANGED_RESISTS:Invoke( bot)   end
-        if changed_melee then _EVENTS.STATS_CHANGED_MELEE:Invoke( bot)   end
-        if changed_ranged then _EVENTS.STATS_CHANGED_RANGED:Invoke( bot)   end
-        if changed_spell then _EVENTS.STATS_CHANGED_SPELL:Invoke( bot)   end
-        if changed_defenses then _EVENTS.STATS_CHANGED_DEFENSES:Invoke( bot)  end
+        if c_base then _EVENTS.STATS_CHANGED_BASE:Invoke(bot)  end
+        if c_resists then _EVENTS.STATS_CHANGED_RESISTS:Invoke( bot)   end
+        if c_melee then _EVENTS.STATS_CHANGED_MELEE:Invoke( bot)   end
+        if c_ranged then _EVENTS.STATS_CHANGED_RANGED:Invoke( bot)   end
+        if c_spell then _EVENTS.STATS_CHANGED_SPELL:Invoke( bot)   end
+        if c_defenses then _EVENTS.STATS_CHANGED_DEFENSES:Invoke( bot)  end
 
-        if changed_base or changed_defenses or changed_melee or changed_ranged or changed_resists or changed_spell then
-            _EVENTS.STATS_CHANGED:Invoke( bot)
+        if c_base or c_defenses or c_melee or c_ranged or c_resists or c_spell then
+            _EVENTS.STATS_CHANGED:Invoke(bot)
         end
     end,
     onFinalize       = function(query)

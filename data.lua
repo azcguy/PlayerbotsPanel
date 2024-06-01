@@ -229,19 +229,6 @@ local function SetTextColor(text, c)
     text:SetTextColor(c.fr, c.fg, c.fb, c.fa)
 end
 
-_self.STAT_KEY = {
-    "RESIST_FIRE",
-    "RESIST_NATURE",
-    "RESIST_FROST",
-    "RESIST_SHADOW",
-    "RESIST_ARCANE",
-    "AGILITY",
-    "INTELLECT",
-    "SPIRIT",
-    "STAMINA",
-    "STRENGTH"
-}
-
 _self.CLASS_DATA = {
     DEATHKNIGHT = {
         hasMana = false
@@ -279,6 +266,41 @@ local _red = _self.colors.red
 local _green = _self.colors.green
 local _white = _self.colors.white
 
+function _self.BotHasRangedWeapon(bot)
+    if bot.items then
+        local ranged = bot.items[INVSLOT_RANGED]
+        if ranged and ranged.link then
+            return true
+        end
+    end
+    return false
+end
+
+local _botPowerTypes = {
+    DEATHKNIGHT = { 6, "RUNIC_POWER" },
+    DRUID = { 0, "MANA" },
+    HUNTER = { 0, "MANA" },
+    MAGE =  { 0, "MANA" },
+    PALADIN = { 0, "MANA" },
+    PRIEST = { 0, "MANA" },
+    ROGUE = { 3, "ENERGY" }, 
+    SHAMAN = { 0, "MANA" },
+    WARLOCK = { 0, "MANA" },
+    WARRIOR = { 1, "RAGE" }
+}
+
+function _self.GetBotPowerType(bot)
+    if bot and bot.class then
+        local power = _botPowerTypes[bot.class]
+        return power[1], power[2]
+    end
+end
+
+function _self.BotHasMana(bot)
+    local powerid, powertoken = _self.GetBotPowerType(bot)
+    return powerid == 0
+end
+
 local function ComputePetBonus(bot, stat, value)
 	local class = bot.class
 	if( class == "WARLOCK" ) then
@@ -314,6 +336,12 @@ local function GetArmorReduction(armor, attackerLevel)
 	end
 
 	return temp*100;
+end
+
+local function GetDodgeBlockParryChanceFromDefense(base, modifier, level)
+	local defensePercent = DODGE_PARRY_BLOCK_PERCENT_PER_DEFENSE * ((base + modifier) - (level*5));
+	defensePercent = _max(defensePercent, 0);
+	return defensePercent;
 end
 
 local function colorStatByVal(frame, positive, negative)
@@ -357,24 +385,26 @@ local function onUpdateBaseStat(frame, value, positive, negative)
     setValueTextAndColorByVal(frame, value, positive, negative)
 end
 
-local function onTooltipBaseStat(tooltip, group, data)
-    local stat = group
-    if not group then return end
+local function onTooltipBaseStat(tooltip, name, value, positive, negative)
     _b:Clear()
     _b:PushColor()
-    _b:STRING(data.name)
+    _b:STRING(name)
     _b:SPACE()
-    _b:INT(stat.effectiveStat)
-    _b:STRING(" (")
-    _b:INT(stat.effectiveStat - stat.positive)
-    _b:PushColor(_green.hex)
-    _b:STRING("+")
-    _b:INT(stat.positive)
-    _b:PushColor()
-    _b:STRING(") ")
-    _b:PopColor()
+    _b:INT(value)
+    if positive > 0 then
+        _b:STRING(" (")
+        _b:INT(value - positive)
+        _b:PushColor(_green.hex)
+        _b:STRING("+")
+        _b:INT(positive)
+        _b:PushColor()
+        _b:STRING(") ")
+        _b:PopColor()
+    end
     tooltip:AddLine(_b:ToString())
 end
+
+
 
 --- Used by stat rows 
 _self.stats = {
@@ -386,9 +416,9 @@ _self.stats = {
         5 - Shadow
     ]]
     ["RESIST_ARCANE"] = {
-        name = "Arcane Resistance",
+        name = RESISTANCE6_NAME,
         nameColor =  _self.CreateColor(64, 173, 203),
-        onUpdateValue = function (frame, botstats)
+        onUpdateValue = function (frame, bot, botstats)
             onUpdateResist(frame, botstats.resists[1])
         end,
         onTooltip = function (self, bot, botstats, tooltip)
@@ -396,9 +426,9 @@ _self.stats = {
         end
     },
     ["RESIST_FIRE"] = {
-        name = "Fire Resistance",
+        name = RESISTANCE2_NAME,
         nameColor =  _self.CreateColor(226, 54, 54),
-        onUpdateValue = function (frame, botstats)
+        onUpdateValue = function (frame, bot, botstats)
             onUpdateResist(frame, botstats.resists[2])
         end,
         onTooltip = function (self, bot, botstats, tooltip)
@@ -406,9 +436,9 @@ _self.stats = {
         end
     },
     ["RESIST_NATURE"] = {
-        name = "Nature Resistance",
+        name = RESISTANCE3_NAME,
         nameColor =  _self.CreateColor(32, 217, 100),
-        onUpdateValue = function (frame, botstats)
+        onUpdateValue = function (frame, bot, botstats)
             onUpdateResist(frame, botstats.resists[3])
         end,
         onTooltip = function (self, bot, botstats, tooltip)
@@ -416,9 +446,9 @@ _self.stats = {
         end
     },
     ["RESIST_FROST"] = {
-        name = "Frost Resistance",
+        name = RESISTANCE4_NAME,
         nameColor =  _self.CreateColor(126, 217, 231),
-        onUpdateValue = function (frame, botstats)
+        onUpdateValue = function (frame, bot, botstats)
             onUpdateResist(frame, botstats.resists[4])
         end,
         onTooltip = function (self, bot, botstats, tooltip)
@@ -426,9 +456,9 @@ _self.stats = {
         end
     },
     ["RESIST_SHADOW"] = {
-        name = "Shadow Resistance",
+        name = RESISTANCE5_NAME,
         nameColor =  _self.CreateColor(140, 103, 213),
-        onUpdateValue = function (frame, botstats)
+        onUpdateValue = function (frame, bot, botstats)
             onUpdateResist(frame, botstats.resists[5])
         end,
         onTooltip = function (self, bot, botstats, tooltip)
@@ -436,14 +466,14 @@ _self.stats = {
         end
     },
     ["STRENGTH"] = {
-        name = "Strength",
-        onUpdateValue = function (frame, botstats)
+        name = SPELL_STAT1_NAME,
+        onUpdateValue = function (frame, bot, botstats)
             local g = botstats.base[1]
             onUpdateBaseStat(frame, g.effectiveStat, g.positive, g.negative)
         end,
         onTooltip = function (self, bot, botstats, tooltip)
             local group = botstats.base[1]
-            onTooltipBaseStat(tooltip, group, self)
+            onTooltipBaseStat(tooltip, self.name, group.effectiveStat, group.positive, group.negative)
             if group.attackPower then
                 tooltip:AddLine(_format(_G["DEFAULT_STAT1_TOOLTIP"], group.attackPower))
             end
@@ -451,14 +481,14 @@ _self.stats = {
         end
     },
     ["AGILITY"] = {
-        name = "Agility",
-        onUpdateValue = function (frame, botstats)
+        name = SPELL_STAT2_NAME,
+        onUpdateValue = function (frame, bot, botstats)
             local g = botstats.base[2]
             onUpdateBaseStat(frame, g.effectiveStat, g.positive, g.negative)
         end,
         onTooltip = function (self, bot, botstats, tooltip)
             local group = botstats.base[2]
-            onTooltipBaseStat(tooltip, group, self)
+            onTooltipBaseStat(tooltip, self.name, group.effectiveStat, group.positive, group.negative)
             local defaultTooltip = _G["DEFAULT_STAT2_TOOLTIP"]
             local atkPow = _eval(group.attackPower, group.attackPower, 0)
             local agiCrit = _eval(group.agilityCritChance, group.agilityCritChance, 0)
@@ -466,14 +496,14 @@ _self.stats = {
         end
     },
     ["STAMINA"] = {
-        name = "Stamina",
-        onUpdateValue = function (frame, botstats)
+        name = SPELL_STAT3_NAME,
+        onUpdateValue = function (frame, bot, botstats)
             local g = botstats.base[3]
             onUpdateBaseStat(frame, g.effectiveStat, g.positive, g.negative)
         end,
         onTooltip = function (self, bot, botstats, tooltip)
             local group = botstats.base[3]
-            onTooltipBaseStat(tooltip, group, self)
+            onTooltipBaseStat(tooltip, self.name, group.effectiveStat, group.positive, group.negative)
             local defaultTooltip = _G["DEFAULT_STAT3_TOOLTIP"]
             local baseStam = _min(20, group.effectiveStat);
             local moreStam = group.effectiveStat - baseStam;
@@ -488,14 +518,14 @@ _self.stats = {
         end
     },
     ["INTELLECT"] = {
-        name = "Intellect",
-        onUpdateValue = function (frame, botstats)
+        name = SPELL_STAT4_NAME,
+        onUpdateValue = function (frame, bot, botstats)
             local g = botstats.base[4]
             onUpdateBaseStat(frame,  g.effectiveStat, g.positive, g.negative)
         end,
         onTooltip = function (self, bot, botstats, tooltip)
             local group = botstats.base[4]
-            onTooltipBaseStat(tooltip, group, self)
+            onTooltipBaseStat(tooltip, self.name, group.effectiveStat, group.positive, group.negative)
 
             local baseInt = _min(20, group.effectiveStat);
             local moreInt = group.effectiveStat - baseInt
@@ -516,14 +546,14 @@ _self.stats = {
         end
     },
     ["SPIRIT"] = {
-        name = "Spirit",
-        onUpdateValue = function (frame, botstats)
+        name = SPELL_STAT5_NAME,
+        onUpdateValue = function (frame,  bot, botstats)
             local g = botstats.base[5]
             onUpdateBaseStat(frame, g.effectiveStat, g.positive, g.negative)
         end,
         onTooltip = function (self, bot, botstats, tooltip)
             local group = botstats.base[5]
-            onTooltipBaseStat(tooltip, group, self)
+            onTooltipBaseStat(tooltip, self.name, group.effectiveStat, group.positive, group.negative)
             local defaultTooltip = _G["DEFAULT_STAT5_TOOLTIP"]
             local healthRegenFromSpirit = _eval(group.healthRegenFromSpirit, group.healthRegenFromSpirit, 0)
             local hasMana = _self.CLASS_DATA[bot.class].hasMana
@@ -540,19 +570,19 @@ _self.stats = {
         end
     },
     ["ARMOR"] = {
-        name = "Armor",
-        onUpdateValue = function (frame, botstats)
-            local g = botstats.armor
-            onUpdateBaseStat(frame, g.effectiveStat, g.positive, g.negative)
+        name = RESISTANCE0_NAME,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.defenses
+            onUpdateBaseStat(frame, g.effectiveArmor, g.armorPositive, g.armorNegative)
         end,
         onTooltip = function (self, bot, botstats, tooltip)
-            local group = botstats.armor
+            local group = botstats.defenses
             if not group then return end
-            onTooltipBaseStat(tooltip, group, self)
-            local armorReduction = GetArmorReduction(group.effectiveStat, bot.level);
+            onTooltipBaseStat(tooltip, self.name, group.effectiveArmor, group.armorPositive, group.armorNegative)
+            local armorReduction = GetArmorReduction(group.effectiveArmor, bot.level);
             _b:Clear()
             _b:STRING(_format(DEFAULT_STATARMOR_TOOLTIP, armorReduction))
-            local petBonus = ComputePetBonus("PET_BONUS_ARMOR", group.effectiveStat);
+            local petBonus = ComputePetBonus("PET_BONUS_ARMOR", group.effectiveArmor);
             if( petBonus > 0 ) then
                 _b:NEWLINE()
                 _b:STRING(_format(PET_BONUS_TOOLTIP_ARMOR, petBonus))
@@ -561,8 +591,8 @@ _self.stats = {
         end
     },
     ["DAMAGE_MELEE"] = {
-        name = "Melee Damage",
-        onUpdateValue = function (frame, botstats)
+        name = DAMAGE,
+        onUpdateValue = function (frame, bot, botstats)
             local g = botstats.melee
             local minDamage = g.minMeleeDamage
             local maxDamage = g.maxMeleeDamage
@@ -708,25 +738,606 @@ _self.stats = {
         end
     },
     ["SPEED_MELEE"] = {
-        name = "Melee Speed",
-        onUpdateValue = function (frame, botstats)
-            local g = botstats.armor
-            onUpdateBaseStat(frame, g.effectiveStat, g.positive, g.negative)
+        name = WEAPON_SPEED,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.melee
+            if not g then return end
+
+            local speed = g.meleeSpeed;
+            local offhandSpeed = g.meleeOffhandSpeed;
+
+            _b:Clear()
+            _b:STRING(_format("%.2f", speed))
+            if ( offhandSpeed ) then
+                _b:STRING(" / ");
+                _b:STRING(_format("%.2f", offhandSpeed))
+            end
+            frame.txtValue:SetText(_b:ToString())
         end,
         onTooltip = function (self, bot, botstats, tooltip)
-            local group = botstats.armor
-            if not group then return end
-            onTooltipBaseStat(tooltip, group, self)
-            local armorReduction = GetArmorReduction(group.effectiveStat, bot.level);
+            local g = botstats.melee
+            if not g then return end
+
+
+            local speed = g.meleeSpeed;
+            local offhandSpeed = g.meleeOffhandSpeed;
+
             _b:Clear()
-            _b:STRING(_format(DEFAULT_STATARMOR_TOOLTIP, armorReduction))
-            local petBonus = ComputePetBonus("PET_BONUS_ARMOR", group.effectiveStat);
-            if( petBonus > 0 ) then
-                _b:NEWLINE()
-                _b:STRING(_format(PET_BONUS_TOOLTIP_ARMOR, petBonus))
+            _b:STRING(_format(PAPERDOLLFRAME_TOOLTIP_FORMAT, ATTACK_SPEED))
+            _b:SPACE()
+            _b:STRING(_format("%.2f", speed))
+            if ( offhandSpeed ) then
+                _b:STRING(" / ");
+                _b:STRING(_format("%.2f", offhandSpeed))
             end
-            tooltip:AddLine(_b:ToString())
+            tooltip:AddLine(_b:ToString(), _white.r, _white.g, _white.b)
+            tooltip:AddLine(_format(CR_HASTE_RATING_TOOLTIP, g.meleeHaste, g.meleeHasteBonus))
         end
     },
+    ["ATTACK_POWER"] = {
+        name = ATTACK_POWER,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.melee
+            if not g then return end
+            local base = g.meleeAtkPowerBase
+            local positive = g.meleeAtkPowerPositive
+            local negative = g.meleeAtkPowerNegative
+            onUpdateBaseStat(frame, base+positive, positive, negative)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.melee
+            if not g then return end
 
+            local base = g.meleeAtkPowerBase
+            local positive = g.meleeAtkPowerPositive
+            local negative = g.meleeAtkPowerNegative
+
+            onTooltipBaseStat(tooltip, MELEE_ATTACK_POWER, _max((base+positive+negative), 0), positive, negative)
+            tooltip:AddLine(_format(MELEE_ATTACK_POWER_TOOLTIP, _max((base+positive+negative), 0) / ATTACK_POWER_MAGIC_NUMBER))
+        end
+    },
+    ["MELEE_HIT_RATING"] = {
+        name = COMBAT_RATING_NAME6,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.melee
+            if not g then return end
+            local value = g.meleeHit
+            onUpdateBaseStat(frame, value, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.melee
+            if not g then return end
+            local value = g.meleeHit
+            local bonus = g.meleeHitBonus
+
+            onTooltipBaseStat(tooltip, COMBAT_RATING_NAME6, value, 0, 0)
+            tooltip:AddLine(_format(CR_HIT_MELEE_TOOLTIP, bot.level, bonus, g.armorPen, g.armorPenBonus, g.armorPenPercent))
+        end
+    },    
+    ["MELEE_CRIT"] = {
+        name = MELEE_CRIT_CHANCE,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.melee
+            if not g then return end
+            local value = g.meleeCritChance
+            onUpdateBaseStat(frame, value, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.melee
+            if not g then return end
+            local critChance = g.meleeCritChance
+
+            onTooltipBaseStat(tooltip, MELEE_CRIT_CHANCE, critChance, 0, 0)
+            tooltip:AddLine(_format(CR_CRIT_MELEE_TOOLTIP, g.meleeCritRating, g.meleeCritRatingBonus))
+        end
+    },
+    ["EXPERTISE"] = {
+        name = STAT_EXPERTISE,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.melee
+            if not g then return end
+            local expertise = g.expertise
+            local offhandExpertise = g.offhandExpertise
+            _b:Clear()
+            _b:INT(expertise)
+            _b:STRING(" / ")
+            _b:INT(offhandExpertise)
+            frame.txtValue:SetText(_b:ToString())
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.melee
+            if not g then return end
+            local expertise = g.expertise
+            local offhandExpertise = g.offhandExpertise
+            local offhandSpeed = g.meleeOffhandSpeed
+            local expertisePercent = g.expertisePercent
+            local offhandExpertisePercent = g.offhandExpertisePercent
+            _b:Clear()
+            _b:STRING(self.name)
+            _b:SPACE()
+            _b:INT(expertise)
+            _b:STRING(" / ")
+            _b:INT(offhandExpertise)
+            tooltip:AddLine(_b:ToString(), _white.r, _white.g, _white.b)
+
+            _b:FLOAT(expertisePercent)
+            _b:STRING("%")
+            if offhandSpeed > 0 then
+                _b:STRING(" / ")
+                _b:FLOAT(offhandExpertisePercent)
+                _b:STRING("%")
+            end
+            tooltip:AddLine(_format(CR_EXPERTISE_TOOLTIP, _b:ToString(), g.expertiseRating, g.expertiseRatingBonus))
+        end
+    },
+    ["DAMAGE_RANGED"] = {
+        name = DAMAGE,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.ranged
+            if not g then return end
+
+            if not _self.BotHasRangedWeapon(bot) then
+                frame.txtValue:SetText(NOT_APPLICABLE)
+                return
+            end
+
+            local minDamage = g.rangedMinDamage
+            if not minDamage then return end
+
+            local maxDamage = g.rangedMaxDamage
+            local physicalBonusPos= g.rangedPhysicalBonusPositive
+            local physicalBonusNeg= g.rangedPhysicalBonusNegative
+            local percent= g.rangedDamageBuffPercent
+            local displayMin = _max(_floor(minDamage),1)
+            local displayMax = _max(_ceil(maxDamage),1)
+        
+            minDamage = (minDamage / percent) - physicalBonusPos - physicalBonusNeg
+            maxDamage = (maxDamage / percent) - physicalBonusPos - physicalBonusNeg
+        
+            local baseDamage = (minDamage + maxDamage) * 0.5
+            local fullDamage = (baseDamage + physicalBonusPos + physicalBonusNeg) * percent
+            local totalBonus = (fullDamage - baseDamage)
+
+            if ( totalBonus < 0.1 and totalBonus > -0.1 ) then totalBonus = 0.0 end
+
+            _b:Clear()
+            local color = _eval(totalBonus > 0, _green, _red)
+
+            if ( totalBonus == 0 ) then
+                _b:INT(displayMin)
+                _b:STRING(" - ")
+                _b:INT(displayMax)
+            else
+                _b:PushColor(color)
+                _b:INT(displayMin)
+                _b:STRING(" - ")
+                _b:INT(displayMax)
+                _b:PopColor()
+            end
+            frame.txtValue:SetText(_b:ToString())
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.ranged
+            local speed = g.rangedAttackSpeed;
+            local minDamage = g.rangedMinDamage;
+            local maxDamage = g.rangedMaxDamage; 
+            local physicalBonusPos= g.rangedPhysicalBonusPositive; 
+            local physicalBonusNeg= g.rangedPhysicalBonusNegative; 
+            local percent= g.rangedDamageBuffPercent; 
+            local displayMin = _max(_floor(minDamage),1);
+            local displayMax = _max(_ceil(maxDamage),1);
+        
+            minDamage = (minDamage / percent) - physicalBonusPos - physicalBonusNeg;
+            maxDamage = (maxDamage / percent) - physicalBonusPos - physicalBonusNeg;
+        
+            local baseDamage = (minDamage + maxDamage) * 0.5;
+            local fullDamage = (baseDamage + physicalBonusPos + physicalBonusNeg) * percent;
+            local totalBonus = (fullDamage - baseDamage);
+            local damagePerSecond = (_max(fullDamage,1) / speed);
+            -- damage tooltip
+            tooltip:AddLine(INVTYPE_RANGED, _white.r, _white.g, _white.b)
+
+            _b:Clear()
+            _b:INT(displayMin)
+            _b:STRING(" - ")
+            _b:INT(displayMax)
+
+
+            if ( totalBonus < 0.1 and totalBonus > -0.1 ) then
+                totalBonus = 0.0;
+            end
+
+            if ( totalBonus == 0 ) then
+            else
+                if ( physicalBonusPos > 0 ) then
+                    _b:PushColor(_green)
+                    _b:STRING(" +")
+                    _b:INT(physicalBonusPos)
+                    _b:PopColor()
+                end
+                if ( physicalBonusNeg < 0 ) then
+                    _b:PushColor(_red)
+                    _b:STRING(" +")
+                    _b:INT(physicalBonusPos)
+                    _b:PopColor()
+                end
+                if ( percent > 1 ) then
+                    _b:PushColor(_green)
+                    _b:STRING(" x")
+                    _b:INT(_floor(percent*100+0.5))
+                    _b:PopColor()
+                elseif ( percent < 1 ) then
+                    _b:PushColor(_red)
+                    _b:STRING(" x")
+                    _b:INT(_floor(percent*100+0.5))
+                    _b:PopColor()
+                end
+            end
+
+            tooltip:AddDoubleLine(_format(STAT_FORMAT, ATTACK_SPEED_SECONDS), _format("%.2f", speed))  
+            tooltip:AddDoubleLine(_format(STAT_FORMAT, DAMAGE), _b:ToString())  
+            tooltip:AddDoubleLine(_format(STAT_FORMAT, DAMAGE_PER_SECOND), _format("%.2f", damagePerSecond))  
+        end
+    },
+    ["SPEED_RANGED"] = {
+        name = ATTACK_SPEED,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.ranged
+            if not g then return end
+            if not _self.BotHasRangedWeapon(bot) then
+                frame.txtValue:SetText(NOT_APPLICABLE)
+                return
+            end
+            local speed = g.rangedAttackSpeed;
+            frame.txtValue:SetText(_format("%.2f", speed))
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.ranged
+            if not g then return end
+
+            local speed = g.rangedAttackSpeed;
+
+            _b:Clear()
+            _b:STRING(_format(PAPERDOLLFRAME_TOOLTIP_FORMAT, ATTACK_SPEED))
+            _b:SPACE()
+            _b:STRING(_format("%.2f", speed))
+            tooltip:AddLine(_b:ToString(), _white.r, _white.g, _white.b)
+            tooltip:AddLine(_format(CR_HASTE_RATING_TOOLTIP, g.rangedHaste, g.rangedHasteBonus))
+        end
+    },
+    ["RANGED_ATTACK_POWER"] = {
+        name = ATTACK_POWER,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.ranged
+            if not g then return end
+            local base = g.rangedAttackPower
+            local positive = g.rangedAttackPowerPositive
+            local negative = g.rangedAttackPowerNegative
+            onUpdateBaseStat(frame, base+positive, positive, negative)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.ranged
+            if not g then return end
+
+            local base = g.rangedAttackPower
+            local positive = g.rangedAttackPowerPositive
+            local negative = g.rangedAttackPowerNegative
+
+            onTooltipBaseStat(tooltip, RANGED_ATTACK_POWER, _max((base+positive+negative), 0), positive, negative)
+            tooltip:AddLine(_format(RANGED_ATTACK_POWER_TOOLTIP, _max((base+positive+negative), 0) / ATTACK_POWER_MAGIC_NUMBER))
+        end
+    },
+    ["RANGED_HIT_RATING"] = {
+        name = COMBAT_RATING_NAME7,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.ranged
+            if not g then return end
+            local value = g.rangedHit
+            onUpdateBaseStat(frame, value, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.ranged
+            local m = botstats.melee
+            if not g then return end
+            if not m then return end
+            local value = g.rangedHit
+            local bonus = g.rangedHitBonus
+
+            onTooltipBaseStat(tooltip, COMBAT_RATING_NAME7, value, 0, 0)
+            tooltip:AddLine(_format(CR_HIT_RANGED_TOOLTIP, bot.level, bonus, m.armorPen, m.armorPenBonus, m.armorPenPercent))
+        end
+    },    
+    ["RANGED_CRIT"] = {
+        name = RANGED_CRIT_CHANCE,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.ranged
+            if not g then return end
+            local value = g.rangedCritChance
+            onUpdateBaseStat(frame, value, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.ranged
+            if not g then return end
+            local critChance = g.rangedCritChance
+
+            onTooltipBaseStat(tooltip, RANGED_CRIT_CHANCE, critChance, 0, 0)
+            tooltip:AddLine(_format(CR_CRIT_RANGED_TOOLTIP, g.rangedCritRating, g.rangedCritRatingBonus))
+        end
+    },    
+    ["SPELL_BONUS_DAMAGE"] = {
+        name = BONUS_DAMAGE,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.spell
+            if not g then return end
+            
+            local minModifier = g.spellBonusDamage[2];
+            for i=2, MAX_SPELL_SCHOOLS do
+                minModifier = _min(minModifier, g.spellBonusDamage[i]);
+            end
+            onUpdateBaseStat(frame, minModifier, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.spell
+            if not g then return end
+            local minModifier = g.spellBonusDamage[2];
+            local bonusDamage = 0
+            for i=2, MAX_SPELL_SCHOOLS do
+                bonusDamage = g.spellBonusDamage[i]
+                minModifier = _min(minModifier, bonusDamage);
+            end
+
+            onTooltipBaseStat(tooltip, BONUS_DAMAGE, minModifier, 0, 0)
+
+            for i=2, MAX_SPELL_SCHOOLS do
+                tooltip:AddDoubleLine(_G["DAMAGE_SCHOOL"..i], g.spellBonusDamage[i]);
+                tooltip:AddTexture("Interface\\PaperDollInfoFrame\\SpellSchoolIcon"..i);
+            end
+
+            local petStr, damage;
+            if( g.spellBonusDamage[6] > g.spellBonusDamage[3] ) then
+                petStr = PET_BONUS_TOOLTIP_WARLOCK_SPELLDMG_SHADOW;
+                damage = g.spellBonusDamage[6];
+            else
+                petStr = PET_BONUS_TOOLTIP_WARLOCK_SPELLDMG_FIRE;
+                damage = g.spellBonusDamage[3];
+            end
+
+            local petBonusAP = ComputePetBonus("PET_BONUS_SPELLDMG_TO_AP", damage );
+            local petBonusDmg = ComputePetBonus("PET_BONUS_SPELLDMG_TO_SPELLDMG", damage );
+            
+            if( petBonusAP > 0 or petBonusDmg > 0 ) then
+                tooltip:AddLine("\n" .. _format(petStr, petBonusAP, petBonusDmg), nil, nil, nil, 1 );
+            end
+        end
+    },    
+    ["SPELL_BONUS_HEALING"] = {
+        name = BONUS_HEALING,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.spell
+            if not g then return end
+            onUpdateBaseStat(frame, g.spellBonusHealing , 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.spell
+            if not g then return end
+            tooltip:AddLine(_format(BONUS_HEALING_TOOLTIP, g.spellBonusHealing))
+        end
+    },    
+    ["SPELL_HIT_RATING"] = {
+        name = COMBAT_RATING_NAME8,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.spell
+            if not g then return end
+            onUpdateBaseStat(frame, g.spellHit, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.spell
+            if not g then return end
+
+            onTooltipBaseStat(tooltip, COMBAT_RATING_NAME8, value, 0, 0)
+            tooltip:AddLine(_format(CR_HIT_SPELL_TOOLTIP, bot.level, g.spellHitBonus, g.spellPenetration, g.spellPenetration))
+        end
+    },    
+    ["SPELL_CRIT"] = {
+        name = SPELL_CRIT_CHANCE,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.spell
+            if not g then return end
+            local spellCrit;
+            local minCrit = g.spellCritChance[2];
+            for i=2, MAX_SPELL_SCHOOLS do
+                spellCrit = g.spellCritChance[i];
+                minCrit = _min(minCrit, spellCrit);
+            end
+            onUpdateBaseStat(frame, minCrit, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.spell
+            if not g then return end
+            local spellCrit;
+            local minCrit = g.spellCritChance[2];
+            for i=2, MAX_SPELL_SCHOOLS do
+                spellCrit = g.spellCritChance[i];
+                minCrit = _min(minCrit, spellCrit);
+            end
+            onTooltipBaseStat(tooltip, COMBAT_RATING_NAME11, g.spellCritRating, 0, 0)
+            for i=2, MAX_SPELL_SCHOOLS do
+                tooltip:AddDoubleLine(_G["DAMAGE_SCHOOL"..i], g.spellCritChance[i]);
+                tooltip:AddTexture("Interface\\PaperDollInfoFrame\\SpellSchoolIcon"..i);
+            end
+            --tooltip:AddLine(_format(CR_HIT_SPELL_TOOLTIP, bot.level, g.spellHitBonus, g.spellPenetration, g.spellPenetration))
+        end
+    },    
+    ["SPELL_HASTE"] = {
+        name = SPELL_HASTE,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.spell
+            if not g then return end
+            onUpdateBaseStat(frame, g.spellHaste, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.spell
+            if not g then return end
+            
+            tooltip:AddLine(SPELL_HASTE, 1,1,1)
+            tooltip:AddLine(_format(SPELL_HASTE_TOOLTIP, g.spellHasteBonus))
+        end
+    },
+    ["MANA_REGEN"] = {
+        name = MANA_REGEN,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.spell
+            if not g then return end
+            if not _self.BotHasMana(bot) then
+                frame.txtValue:SetText(NOT_APPLICABLE)
+                return
+            end
+            local base = g.baseManaRegen
+            base = _floor( base * 5.0 );
+            onUpdateBaseStat(frame, base, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.spell
+            if not g then return end
+            if not _self.BotHasMana(bot) then
+                return
+            end
+
+            local base = g.baseManaRegen
+            local casting = g.castingManaRegen
+            -- All mana regen stats are displayed as mana/5 sec.
+            base = _floor( base * 5.0 );
+            casting = _floor( casting * 5.0 );
+
+            tooltip:AddLine(MANA_REGEN, 1,1,1)
+            tooltip:AddLine(_format(MANA_REGEN_TOOLTIP, base, casting))
+        end
+    },
+    ["DEFENSE"] = {
+        name = DEFENSE,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.defenses
+            if not g then return end
+            local base = g.baseDefense
+            local modifier = g.modifierDefense
+            local posBuff = 0;
+            local negBuff = 0;
+
+            if ( modifier > 0 ) then
+                posBuff = modifier;
+            elseif ( modifier < 0 ) then
+                negBuff = modifier;
+            end
+
+            onUpdateBaseStat(frame, base+modifier, posBuff, negBuff)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.defenses
+            if not g then return end
+
+            local base = g.baseDefense
+            local modifier = g.modifierDefense
+	        local defensePercent = GetDodgeBlockParryChanceFromDefense(base, modifier, bot.level)
+            local posBuff = 0;
+            local negBuff = 0;
+            if ( modifier > 0 ) then
+                posBuff = modifier;
+            elseif ( modifier < 0 ) then
+                negBuff = modifier;
+            end
+            onTooltipBaseStat(tooltip, DEFENSE, base+modifier, posBuff, negBuff)
+            tooltip:AddLine(_format(DEFAULT_STATDEFENSE_TOOLTIP, g.defenseRating, g.defenseRatingBonus, defensePercent, defensePercent))
+        end
+    },
+    ["DODGE"] = {
+        name = STAT_DODGE,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.defenses
+            if not g then return end
+            onUpdateBaseStat(frame, g.dodgeChance, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.defenses
+            if not g then return end
+
+            onTooltipBaseStat(tooltip, _format(PAPERDOLLFRAME_TOOLTIP_FORMAT, DODGE_CHANCE), g.dodgeChance, 0, 0)
+            tooltip:AddLine(_format(CR_DODGE_TOOLTIP, g.dodgeRating, g.dodgeRatingBonus))
+        end
+    },
+    ["PARRY"] = {
+        name = STAT_PARRY,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.defenses
+            if not g then return end
+            onUpdateBaseStat(frame, g.parryChance, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.defenses
+            if not g then return end
+
+            onTooltipBaseStat(tooltip, format(PAPERDOLLFRAME_TOOLTIP_FORMAT, PARRY_CHANCE), g.parryChance, 0, 0)
+            tooltip:AddLine(_format(CR_PARRY_TOOLTIP, g.parryRating, g.parryRatingBonus))
+        end
+    },
+    ["BLOCK"] = {
+        name = STAT_BLOCK,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.defenses
+            if not g then return end
+            onUpdateBaseStat(frame, g.parryChance, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.defenses
+            if not g then return end
+
+            onTooltipBaseStat(tooltip, format(PAPERDOLLFRAME_TOOLTIP_FORMAT, BLOCK_CHANCE), g.blockChance, 0, 0)
+            tooltip:AddLine(_format(CR_BLOCK_TOOLTIP, g.blockRating, g.blockRatingBonus, g.shieldBlock))
+        end
+    },
+    ["RESILIENCE"] = {
+        name = STAT_RESILIENCE,
+        onUpdateValue = function (frame, bot, botstats)
+            local g = botstats.defenses
+            if not g then return end
+
+            local melee = g.meleeResil
+            local ranged = g.rangedResil
+            local spell = g.spellResil
+            local minResilience = _min(melee, ranged)
+            minResilience = _min(minResilience, spell)
+            onUpdateBaseStat(frame, minResilience, 0, 0)
+        end,
+        onTooltip = function (self, bot, botstats, tooltip)
+            local g = botstats.defenses
+            if not g then return end
+
+            local melee = g.meleeResil
+            local ranged = g.rangedResil
+            local spell = g.spellResil
+            local meleeBonus = g.meleeResilBonus
+            local rangedBonus = g.rangedResilBonus
+            local spellBonus = g.spellResilBonus
+
+            local minResilience = _min(melee, ranged)
+            minResilience = _min(minResilience, spell)
+
+            local lowestRating = CR_CRIT_TAKEN_MELEE;
+            local lowestRatingBonus = 0
+            if ( melee == minResilience ) then
+                lowestRating = CR_CRIT_TAKEN_MELEE;
+                lowestRatingBonus = meleeBonus
+            elseif ( ranged == minResilience ) then
+                lowestRating = CR_CRIT_TAKEN_RANGED
+                lowestRatingBonus = rangedBonus
+            else
+                lowestRating = CR_CRIT_TAKEN_SPELL
+                lowestRatingBonus = spellBonus
+            end
+
+	        local maxRatingBonus = GetMaxCombatRatingBonus(lowestRating)
+
+            onTooltipBaseStat(tooltip, _format(PAPERDOLLFRAME_TOOLTIP_FORMAT, STAT_RESILIENCE), minResilience, 0, 0)
+            tooltip:AddLine(_format(RESILIENCE_TOOLTIP, lowestRatingBonus, _min(lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_DAMAGE_REDUCTION_MULTIPLIER, maxRatingBonus), lowestRatingBonus * RESILIENCE_CRIT_CHANCE_TO_CONSTANT_DAMAGE_REDUCTION_MULTIPLIER))
+        end
+    },
 }

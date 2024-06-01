@@ -19,7 +19,14 @@ function _self:Get(debugName)
     sbuffer.PushColor = function (self, colorHex)
         self:_STRING_INTERNAL('\124c')
         if colorHex then
-            self:_STRING_INTERNAL(colorHex)
+            if type(colorHex) == "table" then -- when using pp color table 
+                colorHex = colorHex.hex
+            end
+            if colorHex then
+                self:_STRING_INTERNAL(colorHex)
+            else
+                self:_STRING_INTERNAL("FFFFFFFF")
+            end
         else
             self:_STRING_INTERNAL("FFFFFFFF")
         end
@@ -90,6 +97,7 @@ function _self:Get(debugName)
     end
 
     sbuffer.Clear = function (self)
+        if self.count == 0 then return end
         wipe(self.buffer)
         self.count = 0
         self.debug = false
@@ -99,6 +107,14 @@ function _self:Get(debugName)
         local result = _concat(self.buffer, separator)
         self:Clear()
         return result
+    end
+
+    sbuffer.Dump = function(self)
+        print("buffer.count = "..self.count)
+        print("buffer.count actual = "..getn(self.buffer))
+        for i=1, getn(self.buffer) do
+            print(self.buffer[i])
+        end
     end
 
     return sbuffer
