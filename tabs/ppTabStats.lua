@@ -215,6 +215,7 @@ function _self.CreateStatRow(parent, statData)
     _util.SetTextColor(txtValue, _data.colors.white)
 
     frame.onUpdate = function (self, bot)
+        if not bot then return end
         self.bot = bot
         self.botstats = bot.stats
         local statData = self.statData

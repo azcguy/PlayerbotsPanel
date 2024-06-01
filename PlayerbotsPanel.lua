@@ -1826,7 +1826,7 @@ local function CreateTabGroup(tabsList, defaultTabName)
             end
             group.activeTab = foundTab
             group.activeTab:activate()
-            if group.activeTab.object.customSound then
+            if group.activeTab.object and group.activeTab.object.customSound then
                 PlaySound(group.activeTab.object.customSound)
             else
                 PlaySound(_data.sounds.onTabSwitch)
