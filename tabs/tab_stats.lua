@@ -1,9 +1,11 @@
 local _self = {}
-PlayerbotsPanel.Objects.PlayerbotsPanelTabStats = _self
-local _data = PlayerbotsPanel.Data
-local _util = PlayerbotsPanel.Util
-local _broker = PlayerbotsBroker
-local _tooltips = PlayerbotsPanel.Tooltips
+PlayerbotsPanel.tabs.stats = _self
+local _data = PlayerbotsPanel.data
+local _util = PlayerbotsPanel.broker.util
+local _uiutil = PlayerbotsPanel.uiutil
+local _broker = PlayerbotsPanel.broker
+local _tooltips = PlayerbotsPanel.tooltips
+local QUERY_TYPE = _broker.consts.QUERY
 
 _self.id = "Stats"
 _self.useFullFrame = false
@@ -20,7 +22,13 @@ local _rowColor = _data.CreateColorF(1,1,1,0.06)
 
 local function StartStatQuery(bot)
     if bot == PlayerbotsPanel.selectedBot then
-        _broker:StartQuery(PlayerbotsBrokerQueryType.STATS, PlayerbotsPanel.selectedBot)
+        _broker.StartQuery(QUERY_TYPE.STATS, PlayerbotsPanel.selectedBot)
+    end
+end
+
+local function StartReputationQuery(bot)
+    if bot == PlayerbotsPanel.selectedBot then
+        _broker.StartQuery(QUERY_TYPE.REPUTATION, PlayerbotsPanel.selectedBot)
     end
 end
 
@@ -30,21 +38,32 @@ function _self:Init(tab)
     --(self, icon, stringTooltip, name, onActivate, onDeactivate)
     local subtab = tab:CreateSubTab("Interface\\ICONS\\Spell_Nature_Strength.blp", "Stats", "Stats", 
         function (subtab)
-            _broker.EVENTS.STATS_CHANGED:Add(subtab.Update, subtab)
-            _broker.EVENTS.EQUIP_SLOT_CHANGED:Add(StartStatQuery)
-            _broker.EVENTS.EQUIPMENT_CHANGED:Add(StartStatQuery)
+            _broker.events.STATS_CHANGED:Add(subtab.Update, subtab)
+            _broker.events.EQUIP_SLOT_CHANGED:Add(StartStatQuery)
+            _broker.events.EQUIPMENT_CHANGED:Add(StartStatQuery)
             StartStatQuery(PlayerbotsPanel.selectedBot)
             --_broker:StartQuery(PlayerbotsBrokerQueryType.STATS, PlayerbotsPanel.selectedBot)
             PlayerbotsPanel.events.onBotSelectionChanged:Add(subtab.Update, subtab)
         end, 
         function (subtab)
-            _broker.EVENTS.STATS_CHANGED:Remove(subtab.Update)
-            _broker.EVENTS.EQUIP_SLOT_CHANGED:Remove(StartStatQuery)
-            _broker.EVENTS.EQUIPMENT_CHANGED:Remove(StartStatQuery)
+            _broker.events.STATS_CHANGED:Remove(subtab.Update)
+            _broker.events.EQUIP_SLOT_CHANGED:Remove(StartStatQuery)
+            _broker.events.EQUIPMENT_CHANGED:Remove(StartStatQuery)
             PlayerbotsPanel.events.onBotSelectionChanged:Remove(subtab.Update)
         end)
 
     self:SetupSubtab_Stats(subtab)
+
+    tab:CreateSubTab("Interface\\ICONS\\Achievement_Reputation_01.blp", "Reputation", "Reputation", 
+    function (subtab)
+        --_broker.EVENTS.REPUTATION_CHANGED:Add(subtab.Update, subtab)
+        StartReputationQuery(PlayerbotsPanel.selectedBot)
+        --PlayerbotsPanel.events.onBotSelectionChanged:Add(subtab.Update, subtab)
+    end, 
+    function (subtab)
+        --_broker.EVENTS.REPUTATION_CHANGED:Remove(subtab.Update)
+        --PlayerbotsPanel.events.onBotSelectionChanged:Remove(subtab.Update)
+    end)
 
     tab:CreateSubTab("Interface\\ICONS\\Ability_Repair.blp",  "Skills", "Skills", 
         function (subtab)
@@ -54,9 +73,6 @@ function _self:Init(tab)
         function (subtab)
         end, nil)
 
-    tab:CreateSubTab("Interface\\ICONS\\Achievement_Reputation_01.blp", "Reputation", "Reputation", 
-        function (subtab)
-        end, nil)
 end
 
 
@@ -180,12 +196,18 @@ function _self.CreateStatRow(parent, statData)
     frame:EnableMouse(true)
 
     frame:SetScript("OnEnter", function(self, motion)
+        if not self.bot then 
+            return
+        end
         local tooltip = _tooltips.tooltipStat
         tooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT")
         self.statData:onTooltip(self.bot, self.botstats, tooltip)
         tooltip:Show()
     end)
     frame:SetScript("OnLeave", function(self, motion)
+        if not self.bot then 
+            return
+        end
         _tooltips.tooltipStat:Hide()
     end)
 
@@ -193,7 +215,7 @@ function _self.CreateStatRow(parent, statData)
         local bgTex = frame:CreateTexture(nil, "ARTWORK", nil, -7)
         bgTex:SetAllPoints(frame)
         bgTex:SetTexture(_data.textures.white)
-        _util.SetVertexColor(bgTex, _rowColor)
+        _uiutil.SetVertexColor(bgTex, _rowColor)
     end
         
     local txtName = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -203,7 +225,7 @@ function _self.CreateStatRow(parent, statData)
     txtName:SetText(statData.name)
 
     if statData.nameColor then
-        _util.SetTextColor(txtName, statData.nameColor)
+        _uiutil.SetTextColor(txtName, statData.nameColor)
     end
 
     local txtValue = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")--"NumberFontNormal")
@@ -212,7 +234,7 @@ function _self.CreateStatRow(parent, statData)
     txtValue:SetAllPoints(frame)
     txtValue:SetJustifyH("RIGHT")
     txtValue:SetText("Value")
-    _util.SetTextColor(txtValue, _data.colors.white)
+    _uiutil.SetTextColor(txtValue, _data.colors.white)
 
     frame.onUpdate = function (self, bot)
         if not bot then return end
@@ -220,7 +242,7 @@ function _self.CreateStatRow(parent, statData)
         self.botstats = bot.stats
         local statData = self.statData
         if not statData.nameColor then
-            _util.SetTextColor(txtName, _defaultNameColor)
+            _uiutil.SetTextColor(txtName, _defaultNameColor)
         end
         self.statData.onUpdateValue(self, bot, bot.stats)
     end
@@ -251,7 +273,7 @@ function _self.CreateSeparator(parent, text)
     txtName:SetAllPoints(frame)
     txtName:SetJustifyH("CENTER")
     txtName:SetText(text)
-    _util.SetTextColor(txtName, _data.colors.white)
+    _uiutil.SetTextColor(txtName, _data.colors.white)
 
     parent.rows[vertIdx] = frame
     parent.vertIdx = vertIdx + 1

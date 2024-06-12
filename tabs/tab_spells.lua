@@ -1,12 +1,11 @@
 local _self = {}
-PlayerbotsPanel.Objects.PlayerbotsPanelTabStrategies = _self
+PlayerbotsPanel.tabs.spells = _self
 
-_self = {}
-_self.id = "Strategies"
+_self.id = "Spells"
 _self.useFullFrame = false
 _self.useBackground = true
 _self.rightSide = false
-_self.iconTex = PlayerbotsPanel.rootPath .. "textures\\icon-tab-strategies.tga"
+_self.iconTex = PlayerbotsPanel.rootPath .. "textures\\icon-tab-spells.tga"
 
 local _tab = nil
 local _frame = nil

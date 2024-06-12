@@ -1,5 +1,5 @@
-local _self = {}
-PlayerbotsPanel.Objects.PlayerbotsPanelTabSettings = _self
+PlayerbotsPanel.tabs.settings = {}
+local _self = PlayerbotsPanel.tabs.settings
 
 _self.id = "Settings"
 _self.useFullFrame = false
@@ -9,7 +9,7 @@ _self.iconTex = PlayerbotsPanel.rootPath .. "textures\\icon-tab-settings.tga"
 
 local _tab = nil
 local _frame = nil
-local _tooltips = PlayerbotsPanel.Tooltips
+local _tooltips = PlayerbotsPanel.tooltips
 local _inputRegisterByName
 local _inputUnRegisterByName
 

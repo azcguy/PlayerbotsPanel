@@ -1,14 +1,15 @@
 ---@diagnostic disable: need-check-nil, undefined-field
 local _self = {}
-PlayerbotsPanel.Objects.PlayerbotsPanelTabInventory = _self
+PlayerbotsPanel.tabs.inventory = _self
 
-local _cfg = PlayerbotsPanel.Config
-local _tooltips = PlayerbotsPanel.Tooltips
-local _broker = PlayerbotsBroker
-local _updateHandler = PlayerbotsPanel.UpdateHandler
-local _data = PlayerbotsPanel.Data
-local _util = PlayerbotsPanel.Util
-local _eval = _util.CompareAndReturn
+local _cfg = PlayerbotsPanel.config
+local _tooltips = PlayerbotsPanel.tooltips
+local _broker = PlayerbotsPanel.broker
+local _brokerEvents = _broker.events
+local _updateHandler = PlayerbotsPanel.updateHandler
+local _data = PlayerbotsPanel.data
+local _util = PlayerbotsPanel.broker.util
+local _uiutil = PlayerbotsPanel.uiutil
 local _floor = math.floor
 
 _self.id = "Items"
@@ -18,8 +19,8 @@ _self.rightSide = false
 _self.iconTex = PlayerbotsPanel.rootPath .. "textures\\icon-tab-inventory.tga"
 _self.customSound = "BAGMENUBUTTONPRESS"
 
-local QUERY_TYPE = PlayerbotsBrokerQueryType
-local COMMAND = PlayerbotsBrokerCommandType
+local QUERY_TYPE = _broker.consts.QUERY
+local COMMAND = _broker.consts.COMMAND
 
 local _tab = nil
 local _frame = nil
@@ -48,7 +49,7 @@ local function HandleSlotClicks(slot, button, down)
     local item = slot.item
     if _item_toBeUsedOnAnotherItem and _item_toBeUsedOnAnotherItem.link and not down then
         if button == "LeftButton" and not _updateHandler:GetGlobalMouseButtonConsumed(1) then
-            _broker:GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_USE_ON, _item_toBeUsedOnAnotherItem.link, item.link)
+            _broker.GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_USE_ON, _item_toBeUsedOnAnotherItem.link, item.link)
             SetItemToUseOnAnotherItem(nil)
             _updateHandler:SetGlobalMouseButtonConsumed(1)
         end
@@ -56,7 +57,7 @@ local function HandleSlotClicks(slot, button, down)
         if not down and item and item.link then
             if button == "RightButton" then
                 if not _updateHandler:GetGlobalMouseButtonConsumed(2) then
-                    _broker:GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_USE, item.link)
+                    _broker.GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_USE, item.link)
                     PlaySound("SPELLBOOKCLOSE")
                 end
             elseif button == "LeftButton" then
@@ -78,11 +79,10 @@ local function HandleGlobalMouseClick(button, down)
     end
 end
 
-local _pool_itemSlots = _util.CreatePool(
+local _pool_itemSlots = _util.pool.Create(
     function ()
         local slot = PlayerbotsPanel.CreateSlot(nil, 35, 0, nil)
         slot.bgTex:SetVertexColor(0.4,0.4,0.4)
-
         slot.onClick:Add(function (self, button, down)
             HandleSlotClicks(self, button, down)
         end)
@@ -110,13 +110,13 @@ local function HandleQuery_INVENTORY_CHANGED(bot)
 end
 
 function _self:OnActivate(tab)
-    _broker.EVENTS.INVENTORY_CHANGED:Add(HandleQuery_INVENTORY_CHANGED)
+    _brokerEvents.INVENTORY_CHANGED:Add(HandleQuery_INVENTORY_CHANGED)
     _updateHandler.onMouseButton:Add(HandleGlobalMouseClick)
     SetItemToUseOnAnotherItem(nil)
 end
 
 function _self:OnDeactivate(tab)
-    _broker.EVENTS.INVENTORY_CHANGED:Remove(HandleQuery_INVENTORY_CHANGED)
+    _brokerEvents.INVENTORY_CHANGED:Remove(HandleQuery_INVENTORY_CHANGED)
     _updateHandler.onMouseButton:Remove(HandleGlobalMouseClick)
     SetItemToUseOnAnotherItem(nil)
 end
@@ -129,7 +129,7 @@ function _self:Init(tab)
     _frameUseItemOnItem:SetPoint("TOPLEFT", 90, 40)
     _frameUseItemOnItem:SetFrameLevel(10)
     _frameUseItemOnItem:SetSize(45, 45)
-    _util.SetBackdrop(_frameUseItemOnItem, _data.textures.useItemOnItemFrame)
+    _uiutil.SetBackdrop(_frameUseItemOnItem, _data.textures.useItemOnItemFrame)
 
     _frameUseItemOnItem.slot = PlayerbotsPanel.CreateSlot(_frameUseItemOnItem, 32, 0, nil)
     _frameUseItemOnItem.slot:SetSize(32,32)
@@ -166,7 +166,7 @@ function _self:Init(tab)
     updateBtn:SetPushedTexture(_data.textures.updateBotsDown)
     updateBtn:SetHighlightTexture(_data.textures.updateBotsHi)
     updateBtn:SetScript("OnClick", function(self, button, down)
-        _broker:StartQuery(QUERY_TYPE.INVENTORY, PlayerbotsPanel.selectedBot)
+        _broker.StartQuery(QUERY_TYPE.INVENTORY, PlayerbotsPanel.selectedBot)
         PlaySound("GAMEGENERICBUTTONPRESS")
     end)
     updateBtn:EnableMouse(true)
@@ -299,7 +299,7 @@ function  _self.CreateBagsTab(bagtype, subtab)
     bagsframe.scrollbackground:SetFrameLevel(3)
     bagsframe.scrollbackground:SetSize(18, 330)
     bagsframe.scrollbackground:SetPoint("TOPRIGHT", subtab.bagsframe, 16, 2)
-    _util.SetBackdrop(subtab.bagsframe.scrollbackground, _data.ROOT_PATH .. "textures\\inventory_scroll.tga")
+    _uiutil.SetBackdrop(subtab.bagsframe.scrollbackground, _data.ROOT_PATH .. "textures\\inventory_scroll.tga")
 
     local scrollbar = _G[scrollBarName .."ScrollBar"];
     local scrollupbutton = _G[scrollBarName.."ScrollBarScrollUpButton"];

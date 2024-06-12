@@ -1,6 +1,6 @@
-PlayerbotsPanel.Tooltips = {}
+PlayerbotsPanel.tooltips = {}
+local _self = PlayerbotsPanel.tooltips
 
-local _self = PlayerbotsPanel.Tooltips
 -- tooltip used for items
 _self.tooltip = nil
 _self.tooltipCompare1 = nil

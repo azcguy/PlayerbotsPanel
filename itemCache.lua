@@ -1,12 +1,12 @@
-PlayerbotsPanel.ItemCache = {}
-local _self = PlayerbotsPanel.ItemCache
-local _data = PlayerbotsPanel.Data
-local _cfg = PlayerbotsPanel.Config
-local _updateHandler = PlayerbotsPanel.UpdateHandler
+PlayerbotsPanel.itemCache = {}
+local _self = PlayerbotsPanel.itemCache
+local _data = PlayerbotsPanel.data
+local _cfg = PlayerbotsPanel.config
+local _updateHandler = PlayerbotsPanel.updateHandler
 local _cacheTable = {}
 local _queryTooltip = CreateFrame("GameTooltip", "PlayerbotsPanelTooltip_query", UIParent, "GameTooltipTemplate")
 local _pairs = pairs
-local _util = PlayerbotsPanel.Util
+local _util = PlayerbotsPanel.broker.util
 -- Using big strings as keys is fine in lua, since all strings are interned by default and the table uses reference as key
 
 local _queue = {}
@@ -51,7 +51,7 @@ _self.associatedSlots = {
 }
 
 function _self:Init()
-    _updateHandler:RegisterHandler(_self.ProcessQueue)
+    _updateHandler.onUpdate:Add(_self.ProcessQueue)
 end
 
 function _self.ProcessQueue(elapsed)
@@ -94,7 +94,7 @@ function  _self.GetItemCache(itemLink)
         cache = {}
         _queryTooltip:SetHyperlink(itemLink)
         cache.updating = true
-        cache.onQueryComplete = _util.CreateEvent()
+        cache.onQueryComplete = _util.event.Create()
         cache.name = "Updating ..."
         cache.link = itemLink
         cache.quality = 0

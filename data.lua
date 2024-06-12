@@ -1,5 +1,5 @@
-PlayerbotsPanel.Data = {}
-local _self = PlayerbotsPanel.Data
+PlayerbotsPanel.data = {}
+local _self = PlayerbotsPanel.data
 _self.textures = {}
 _self.colors = {}
 _self.sounds = {}
@@ -11,8 +11,9 @@ _self.TEX_ROOT_PATH = "Interface\\AddOns\\PlayerbotsPanel\\textures\\"
 ----- Colors 
 -----------------------------------------------------------------------------
 
-local _sb_hexColor = PlayerbotsPanel.StringBuffer:Get("Data.hexColor")
-local _b = PlayerbotsPanel.StringBuffer:Get("Data.stat")
+local _util = PlayerbotsPanel.broker.util
+local _sb_hexColor = _util.stringBuffer.Create("Data.hexColor")
+local _b = _util.stringBuffer.Create("Data.stat")
 local _hexFormat = "%02X"
 local _format = string.format
 local _max = math.max

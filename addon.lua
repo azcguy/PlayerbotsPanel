@@ -1,52 +1,41 @@
 local _self = PlayerbotsPanel
 local ROOT_FRAME = PlayerbotsPanel.rootFrame
 local ROOT_PATH  = PlayerbotsPanel.rootPath
-local _cfg = PlayerbotsPanel.Config
-local _data = PlayerbotsPanel.Data
-local _util = PlayerbotsPanel.Util
-local _updateHandler = PlayerbotsPanel.UpdateHandler
-local _tooltips = PlayerbotsPanel.Tooltips
-local _itemCache = PlayerbotsPanel.ItemCache
-local _debug = PlayerbotsPanel.Debug
-local _broker = PlayerbotsBroker
-local _dbchar = {}
-local _dbaccount = {}
-local QUERY_TYPE = PlayerbotsBrokerQueryType
-local COMMAND = PlayerbotsBrokerCommandType
+local _broker = _self.broker
+local _util = _broker.util
+local _uiutil = PlayerbotsPanel.uiutil
+local _cfg = PlayerbotsPanel.config
+local _data = PlayerbotsPanel.data
+local _updateHandler = PlayerbotsPanel.updateHandler
+local _tooltips = PlayerbotsPanel.tooltips
+local _itemCache = PlayerbotsPanel.itemCache
+local _debug = PlayerbotsPanel.debug
+local QUERY_TYPE = _broker.consts.QUERY
+local COMMAND = _broker.consts.COMMAND
 local _eval = _util.CompareAndReturn
 local _pairs = pairs
+local _dbchar = {}
+local _bots = _self.broker.store.bots
+
 _self.selectedBot = nil
 _self.isTrading = false
 _self.events = {}
-_self.events.onBotSelectionChanged = _util.CreateEvent()
+_self.events.onBotSelectionChanged = _util.event.Create()
 
 -- references to tab objects that will be initialized, declared in corresponding files
 _self.tabInitList = 
 {
-    _self.Objects.PlayerbotsPanelTabCommands,
-    _self.Objects.PlayerbotsPanelTabInventory,
-    _self.Objects.PlayerbotsPanelTabQuests,
-    _self.Objects.PlayerbotsPanelTabSettings,
-    _self.Objects.PlayerbotsPanelTabSpells,
-    _self.Objects.PlayerbotsPanelTabStats,
-    _self.Objects.PlayerbotsPanelTabStrategies,
-    _self.Objects.PlayerbotsPanelTabTalents,
+    _self.tabs.commands,
+    _self.tabs.inventory,
+    _self.tabs.quests,
+    _self.tabs.settings,
+    _self.tabs.spells,
+    _self.tabs.stats,
+    _self.tabs.strategies,
+    _self.tabs.talents,
 }
 
 _self.mainTabGroup = { }
-
--- when target switches this gets populated
-_self.targetData =
-{
-    isPlayer = false,
-    isRegistered = false,
-    isOnline = false,
-    race = "",
-    raceNice = "",
-    name = "",
-    class = "",
-    level = 0,
-}
 
 -- chat commands to control addon itself
 _self.commands = {
@@ -56,42 +45,8 @@ _self.commands = {
             name = "toggle",
             desc = "Toggle PlayerbotsPanel",
             type = 'execute',
-            func = function() _self:OnClick() end
-        },
-        clearAll = {
-            name = "clearall",
-            desc = "Clears all bot data",
-            type = 'execute',
             func = function() 
-                print("Clearing all bot data")
-                if _dbchar then
-                    _dbchar.bots = {}
-                end
-                ReloadUI()
-            end
-        },
-        dumpStatus = {
-            name = "dumpstatus",
-            desc = "dumps status for all bots",
-            type = 'execute',
-            func = function() 
-                for k,bot in pairs(_dbchar.bots) do
-                    local status = _broker:GetBotStatus(bot.name)
-                    print("-----> " .. bot.name)
-                    print("online:" .. tostring(status.online))
-                    print("party:" .. tostring(status.party))
-                end
-            end
-        },
-        queryWho = {
-            name = "querywho",
-            desc = "who query for all bots",
-            type = 'execute',
-            func = function() 
-                for name, bot in pairs(_dbchar.bots) do
-                    PlayerbotsBroker:StartQuery(QUERY_TYPE.WHO, bot)
-                end
-            end
+                _self:OnClick() end
         }
     }
 }
@@ -108,49 +63,27 @@ function _self:OnInitialize()
     _debug:SetDebugging(true)
     _debug:SetDebugLevel(_cfg.debugLevel)
     _dbchar = _self.db.char
-    if _dbchar.bots == nil then
-      _dbchar.bots = {}
-    end
-    for name, bot in pairs(_dbchar.bots) do
-        _self:ValidateBotData(bot)
-    end
-    _dbaccount = _self.db.account
-    _updateHandler:Init()
-    _broker:Init(_dbchar.bots)
     _itemCache:Init()
-    self:CreateWindow()
-    self:RegisterChatCommand("/pp", self.commands)
-    --self:RegisterEvent("PLAYER_LOGIN")
-    --self:RegisterEvent("PLAYER_LOGOUT")
-    self:RegisterEvent("PLAYER_TARGET_CHANGED")
-    self:RegisterEvent("UNIT_MODEL_CHANGED")
-    self:RegisterEvent("PARTY_MEMBERS_CHANGED")
-    self:RegisterEvent("PARTY_MEMBER_DISABLE")
-    self:RegisterEvent("PARTY_MEMBER_ENABLE")
-    self:RegisterEvent("CHAT_MSG_WHISPER")
-    self:RegisterEvent("CHAT_MSG_ADDON")
-    self:RegisterEvent("CHAT_MSG_SYSTEM")
-    self:RegisterEvent("TRADE_CLOSED")
-    self:RegisterEvent("TRADE_SHOW")
-
+    _self:CreateWindow()
+    _self:RegisterChatCommand("/pp", _self.commands)
+    _self:RegisterEvent("PLAYER_TARGET_CHANGED")
+    _self:RegisterEvent("UNIT_MODEL_CHANGED")
+    _self:RegisterEvent("TRADE_CLOSED")
+    _self:RegisterEvent("TRADE_SHOW")
 end
 
 function _self:OnEnable()
-    self:SetDebugging(true)
-
+    _self:SetDebugging(true)
     ROOT_FRAME:Show()
     _self:UpdateBotSelector()
-    _broker:OnEnable()
 end
 
 function _self:OnDisable()
-    self:SetDebugging(false)
-    _broker:OnDisable()
+    _self:SetDebugging(false)
 end
 
 function _self:OnShow()
     PlaySound(_data.sounds.onAddonShow)
-
 end
 
 function _self:OnHide()
@@ -171,21 +104,8 @@ end
 
 function _self:PLAYER_TARGET_CHANGED()
     if UnitIsPlayer("target") then
-        _self:ExtractTargetData()
         _self:SetSelectedBot(UnitName("target"))
     end
-end
-
-function _self:PARTY_MEMBERS_CHANGED()
-    _broker:PARTY_MEMBERS_CHANGED()
-end
-
-function _self:PARTY_MEMBER_ENABLE()
-    _broker:PARTY_MEMBER_ENABLE()
-end
-
-function _self:PARTY_MEMBER_DISABLE()
-    _broker:PARTY_MEMBER_DISABLE()
 end
 
 function _self:TRADE_CLOSED()
@@ -199,366 +119,14 @@ end
 function _self:UNIT_MODEL_CHANGED()
 end
 
-function _self:PLAYER_LOGIN()
-    _broker:PLAYER_LOGIN()
-end
-
-function _self:PLAYER_LOGOUT()
-    _broker:PLAYER_LOGOUT()
-end
-
-function _self:CHAT_MSG_WHISPER(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter, guid)
-    _broker:CHAT_MSG_WHISPER(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter, guid)
-end
-
-function _self:CHAT_MSG_ADDON(prefix, message, channel, sender)
-    _broker:CHAT_MSG_ADDON(prefix, message, channel, sender)
-end
-
-function _self:CHAT_MSG_SYSTEM(message, sender, language, channelString, target, flags, unknown, channelNumber, channelName, unknown, counter)
-    --_broker:CHAT_MSG_SYSTEM(prefix, message, channel, sender)
-end
-
-function _self:GetBot(name)
-    if _dbchar.bots ~= nil then
-        return _dbchar.bots[name]
-    end
-    return nil
-end
-
-function _self:ExtractTargetData()
-    local _name = UnitName("target")
-    local race, racetoken = UnitRace("target")
-    _self.targetData = {
-        isPlayer = UnitIsPlayer("target"),
-        guid = UnitGUID("target"),
-        isRegistered = _util.Where(_dbchar.bots, function(k,v)
-            if k == _name then return true end
-        end),
-        isOnline = UnitIsConnected("target"),
-        name = _name,
-        raceNice = race,
-        race = strupper(racetoken),
-        class = UnitClass("target"),
-        level = UnitLevel("target")
-    }
-end
-
-
-function _self:CreateBotData(name)
-    if not name then
-        error("Invalid name")
-        return
-    end
-        
-    if _dbchar.bots[name] then
-        print("Bot ".. name .. " is already registered!")
-        return
-    end
-    
-    local bot = {}
-    bot.name = name
-    _self:ValidateBotData(bot)
-    _dbchar.bots[name] = bot
-    return bot
-end
-
-
-local _pool_bagslotdata = _util.CreatePool(
-    function ()
-        return { link = nil, count = 0 }
-    end,
-    function (elem)
-        elem.link = nil
-        elem.count = 0
-    end )
-
-function  _self.InitBag(bag, size, link)
-    bag.link = link
-    bag.size = size
-    bag.freeSlots = size
-    local contents = bag.contents
-    for k,v in _pairs(contents) do
-        _pool_bagslotdata:Release(v)
-    end
-    wipe(bag.contents)
-end
-
-function _self.SetBagItemData(bag, slotNum, count, link)
-    local size = bag.size
-    local contents = bag.contents
-    if slotNum > size then
-        _debug.LevelDebug(1, "Slot num is larger than bag size!")
-        return
-    end
-
-    local slot = contents[slotNum]
-
-    if not link then
-        if not slot then return end -- no incoming link and no existing slot, do nothing
-        local existingLink = slot.link
-        if existingLink then -- removed an item
-            bag.freeSlots = bag.freeSlots + 1
-        end
-        contents[slotNum] = nil
-        _pool_bagslotdata:Release(slot)
-    else
-        local added = false
-        if not slot then 
-            slot = _pool_bagslotdata:Get()
-            contents[slotNum] = slot
-            added = true
-        else
-            local existingLink = slot.link
-            if not existingLink then -- added item
-                added = true
-            end
-        end
-        slot.link = link
-        slot.count = count
-        if added then
-            bag.freeSlots = bag.freeSlots - 1
-        end
-    end
-end
-
-function _self:CreateBagData(name, size)
-    local bag = {}
-    bag.name = name
-    bag.link = nil
-    bag.freeSlots = size
-    bag.size = size
-    bag.contents = {}
-    _self.InitBag(bag, bag.size, nil)
-    return bag
-end
-
---- May seem overboard but it allows to adjust the layout of the data after it was already serialized
-function _self:ValidateBotData(bot)
-    local function EnsureField(owner, name, value)
-        if not owner[name] then
-            owner[name] = value
-        end
-    end
-
-    EnsureField(bot, "race", "HUMAN")
-    EnsureField(bot, "class", "PALADIN")
-    EnsureField(bot, "level", 1)
-    EnsureField(bot, "expLeft", 0.0)
-    EnsureField(bot, "zone", "Unknown")
-    EnsureField(bot, "talents", {})
-    EnsureField(bot.talents, "dualSpecUnlocked", false)
-    EnsureField(bot.talents, "activeSpec", 1)
-    EnsureField(bot.talents, "specs", {})
-
-    EnsureField(bot.talents.specs,1, {})
-    local spec1 = bot.talents.specs[1]
-    EnsureField(spec1,"primary", 1)
-    EnsureField(spec1,"tabs", {})
-    EnsureField(spec1.tabs,1, {})
-    EnsureField(spec1.tabs[1], "points", 0)
-    EnsureField(spec1.tabs,2, {})
-    EnsureField(spec1.tabs[2], "points", 0)
-    EnsureField(spec1.tabs,3, {})
-    EnsureField(spec1.tabs[3], "points", 0)
-
-    EnsureField(bot.talents.specs,2, {})
-    local spec2 = bot.talents.specs[2]
-    EnsureField(spec2,"primary", 1)
-    EnsureField(spec2,"tabs", {})
-    EnsureField(spec2.tabs,1, {})
-    EnsureField(spec2.tabs[1], "points", 0)
-    EnsureField(spec2.tabs,2, {})
-    EnsureField(spec2.tabs[2], "points", 0)
-    EnsureField(spec2.tabs,3, {})
-    EnsureField(spec2.tabs[3], "points", 0)
-
-    EnsureField(bot, "currency", {})
-    EnsureField(bot.currency, "copper", 0)
-    EnsureField(bot.currency, "silver", 0)
-    EnsureField(bot.currency, "gold", 0)
-    EnsureField(bot.currency, "other", {})
-
-    EnsureField(bot, "items", {})
-    for i=0, 19 do
-        EnsureField(bot.items, i, {})
-    end
-    
-    EnsureField(bot, "bags", {})
-    local bags = bot.bags
-    EnsureField(bags, -2, _self:CreateBagData("Keyring", 32))
-    EnsureField(bags, -1, _self:CreateBagData("Bank Storage", 28)) -- bank 0
-    EnsureField(bags, 0,  _self:CreateBagData("Backpack", 16)) 
-    EnsureField(bags, 1,  _self:CreateBagData(nil, 0))
-    EnsureField(bags, 2,  _self:CreateBagData(nil, 0))
-    EnsureField(bags, 3,  _self:CreateBagData(nil, 0))
-    EnsureField(bags, 4,  _self:CreateBagData(nil, 0))
-    EnsureField(bags, 5,  _self:CreateBagData(nil, 0)) -- bank 1
-    EnsureField(bags, 6,  _self:CreateBagData(nil, 0)) 
-    EnsureField(bags, 7,  _self:CreateBagData(nil, 0)) 
-    EnsureField(bags, 8,  _self:CreateBagData(nil, 0)) 
-    EnsureField(bags, 9,  _self:CreateBagData(nil, 0)) 
-    EnsureField(bags, 10, _self:CreateBagData(nil, 0)) 
-    EnsureField(bags, 11, _self:CreateBagData(nil, 0)) -- bank 7
-
-    EnsureField(bot, "stats", {})
-    EnsureField(bot.stats, "base", {})
-    local function ensureBaseStat(index)
-        EnsureField(bot.stats.base, index, {})
-        EnsureField(bot.stats.base[index], "effectiveStat", 0)
-        EnsureField(bot.stats.base[index], "positive", 0)
-        EnsureField(bot.stats.base[index], "negative", 0)
-    end
-
-    for i=1, 5 do
-        ensureBaseStat(i)
-        if i == 1 then -- STRENGTH
-            EnsureField(bot.stats.base[i], "attackPower", 0)
-        elseif i == 2 then -- AGILITY
-            EnsureField(bot.stats.base[i], "attackPower", 0)
-            EnsureField(bot.stats.base[i], "agilityCritChance", 0)
-        elseif i == 3 then -- STAMINA
-            EnsureField(bot.stats.base[i], "maxHpModifier", 0)
-        elseif i == 4 then
-            EnsureField(bot.stats.base[i], "intellectCritChance", 0)
-        elseif i == 5 then -- spirit
-            EnsureField(bot.stats.base[i], "healthRegenFromSpirit", 0)
-            EnsureField(bot.stats.base[i], "manaRegenFromSpirit", 0)
-        end
-    end
-
-    EnsureField(bot.stats, "resists", {})
-    local function ensureResist(index)
-        EnsureField(bot.stats.resists, index, {})
-        EnsureField(bot.stats.resists[index], "resistance", 0)
-        EnsureField(bot.stats.resists[index], "positive", 0)
-        EnsureField(bot.stats.resists[index], "negative", 0)
-    end
-
-    for i=1, 5 do
-        ensureResist(i)
-    end
-
-    EnsureField(bot.stats, "melee", {})
-    local melee = bot.stats.melee
-    EnsureField(melee, "minMeleeDamage", 0)
-    EnsureField(melee, "maxMeleeDamage", 0)
-    EnsureField(melee, "minMeleeOffHandDamage", 0)
-    EnsureField(melee, "maxMeleeOffHandDamage", 0)
-    EnsureField(melee, "meleePhysicalBonusPositive", 0)
-    EnsureField(melee, "meleePhysicalBonusNegative", 0)
-    EnsureField(melee, "meleeDamageBuffPercent", 0)
-    EnsureField(melee, "meleeSpeed", 0)
-    EnsureField(melee, "meleeOffhandSpeed", 0)
-    EnsureField(melee, "meleeAtkPowerBase", 0)
-    EnsureField(melee, "meleeAtkPowerPositive", 0)
-    EnsureField(melee, "meleeAtkPowerNegative", 0)
-    EnsureField(melee, "meleeHaste", 0)
-    EnsureField(melee, "meleeHasteBonus", 0)
-    EnsureField(melee, "meleeCritRating", 0)
-    EnsureField(melee, "meleeCritRatingBonus", 0)
-    EnsureField(melee, "meleeCritChance", 0)
-    EnsureField(melee, "meleeHit", 0)
-    EnsureField(melee, "meleeHitBonus", 0)
-    EnsureField(melee, "armorPen", 0)
-    EnsureField(melee, "armorPenPercent", 0)
-    EnsureField(melee, "armorPenBonus", 0)
-    EnsureField(melee, "expertise", 0)
-    EnsureField(melee, "offhandExpertise", 0)
-    EnsureField(melee, "expertisePercent", 0)
-    EnsureField(melee, "expertiseOffhandPercent", 0)
-    EnsureField(melee, "expertiseRating", 0)
-    EnsureField(melee, "expertiseRatingBonus", 0)
-
-    EnsureField(bot.stats, "ranged", {})
-    local ranged = bot.stats.ranged
-
-    EnsureField(ranged, "rangedAttackSpeed", 0)
-    EnsureField(ranged, "rangedMinDamage", 0)
-    EnsureField(ranged, "rangedMaxDamage", 0)
-    EnsureField(ranged, "rangedPhysicalBonusPositive", 0)
-    EnsureField(ranged, "rangedPhysicalBonusNegative", 0)
-    EnsureField(ranged, "rangedDamageBuffPercent", 0)
-    EnsureField(ranged, "rangedAttackPower", 0)
-    EnsureField(ranged, "rangedAttackPowerPositive", 0)
-    EnsureField(ranged, "rangedAttackPowerNegative", 0)
-    EnsureField(ranged, "rangedHaste", 0)
-    EnsureField(ranged, "rangedHasteBonus", 0)
-    EnsureField(ranged, "rangedCritRating", 0)
-    EnsureField(ranged, "rangedCritRatingBonus", 0)
-    EnsureField(ranged, "rangedCritChance", 0)
-    EnsureField(ranged, "rangedHit", 0)
-    EnsureField(ranged, "rangedHitBonus", 0)
-
-    EnsureField(bot.stats, "spell", {})
-    local spell = bot.stats.spell
-
-    EnsureField(spell, "spellBonusDamage", {})
-
-    for i=2, MAX_SPELL_SCHOOLS do 
-        EnsureField(spell.spellBonusDamage, i, 0)
-    end
-
-    EnsureField(spell, "spellBonusHealing", 0)
-    EnsureField(spell, "spellHit", 0)
-    EnsureField(spell, "spellHitBonus", 0)
-    EnsureField(spell, "spellPenetration", 0)
-
-    EnsureField(spell, "spellCritChance", {})
-    for i=2, MAX_SPELL_SCHOOLS do 
-        EnsureField(spell.spellCritChance, i, 0)
-    end
-    EnsureField(spell, "spellCritRating", 0)
-    EnsureField(spell, "spellCritRatingBonus", 0)
-    EnsureField(spell, "spellHaste", 0)
-    EnsureField(spell, "spellHasteBonus", 0)
-    EnsureField(spell, "baseManaRegen", 0)
-    EnsureField(spell, "castingManaRegen", 0)
-
-    EnsureField(bot.stats, "defenses", {})
-    local defenses = bot.stats.defenses
-
-    EnsureField(defenses, "effectiveArmor", 0)
-    EnsureField(defenses, "armorPositive", 0)
-    EnsureField(defenses, "armorNegative", 0)
-    EnsureField(defenses, "effectivePetArmor", 0)
-    EnsureField(defenses, "armorPetPositive", 0)
-    EnsureField(defenses, "armorPetNegative", 0)
-    EnsureField(defenses, "baseDefense", 0)
-    EnsureField(defenses, "modifierDefense", 0)
-    EnsureField(defenses, "defenseRating", 0)
-    EnsureField(defenses, "defenseRatingBonus", 0)
-    EnsureField(defenses, "dodgeChance", 0)
-    EnsureField(defenses, "dodgeRating", 0)
-    EnsureField(defenses, "dodgeRatingBonus", 0)
-    EnsureField(defenses, "blockChance", 0)
-    EnsureField(defenses, "shieldBlock", 0)
-    EnsureField(defenses, "blockRating", 0)
-    EnsureField(defenses, "blockRatingBonus", 0)
-    EnsureField(defenses, "parryChance", 0)
-    EnsureField(defenses, "parryRating", 0)
-    EnsureField(defenses, "parryRatingBonus", 0)
-    EnsureField(defenses, "meleeResil", 0)
-    EnsureField(defenses, "meleeResilBonus", 0)
-    EnsureField(defenses, "rangedResil", 0)
-    EnsureField(defenses, "rangedResilBonus", 0)
-    EnsureField(defenses, "spellResil", 0)
-    EnsureField(defenses, "spellResilBonus", 0)
-end
-
 function _self:RegisterByName(name)
-    if _dbchar.bots[name] == nil then
-        _dbchar.bots[name] = _self:CreateBotData(name)
-        _broker:DoHandshakeAfterRegistration(name)
-    end
+    _broker.RegisterByName(name)
     _self:UpdateBotSelector()
     _self:SetSelectedBot(name)
 end
 
 function _self:UnregisterByName(name)
-    if _dbchar.bots[name] ~= nil then
-        _dbchar.bots = _util.RemoveByKey(_dbchar.bots, name)
-    end
+    _broker.UnregisterByName(name)
     _self:ClearSelection()
     _self:UpdateBotSelector()
 end
@@ -578,7 +146,7 @@ function _self:ClearSelection()
 end
 
 function _self:SetSelectedBot(botname)
-    local bot = _self:GetBot(botname)
+    local bot = _broker.GetBot(botname)
     if bot == nil then return end
     self.selectedBot = bot
     _dbchar.lastSelectedBot = botname
@@ -610,9 +178,9 @@ function _self.CreateSlot(frame, slotSize, id, bgTex, isEquipSlot)
     local slot =  CreateFrame("Button", "pp_slot", frame)
     slot.id = id
     slot.isEquipSlot = isEquipSlot
-    slot.onClick = _util.CreateEvent()
-    slot.onEnter = _util.CreateEvent()
-    slot.onLeave = _util.CreateEvent()
+    slot.onClick = _broker.util.event.Create()
+    slot.onEnter = _broker.util.event.Create()
+    slot.onLeave = _broker.util.event.Create()
     slot:RegisterForClicks("AnyUp", "AnyDown")
     slot.updating = false
     slot.showBagFreeSlots = false
@@ -655,9 +223,9 @@ function _self.CreateSlot(frame, slotSize, id, bgTex, isEquipSlot)
                 end
             end 
 
-            _util.SetVertexColor(self.hitex, self.qColor)
+            _uiutil.SetVertexColor(self.hitex, self.qColor)
         else
-            _util.SetVertexColor(self.hitex, _data.colors.defaultSlotHighlight)
+            _uiutil.SetVertexColor(self.hitex, _data.colors.defaultSlotHighlight)
         end
         if self.onEnter then
             self.onEnter:Invoke(self, motion)
@@ -668,7 +236,7 @@ function _self.CreateSlot(frame, slotSize, id, bgTex, isEquipSlot)
         _tooltips.tooltip:Hide()
         _tooltips.tooltipCompare1:Hide()
         _tooltips.tooltipCompare2:Hide()
-        _util.SetVertexColor(self.hitex, _data.colors.defaultSlotHighlight)
+        _uiutil.SetVertexColor(self.hitex, _data.colors.defaultSlotHighlight)
         self.hitex:Hide()
         if self.onLeave then
             self.onLeave:Invoke(self, motion)
@@ -734,7 +302,7 @@ function _self.CreateSlot(frame, slotSize, id, bgTex, isEquipSlot)
             slot.itemTex:Show()
             slot.itemTex:SetTexture(cache.texture)
             slot.qColor = _data.colors.quality[quality]
-            _util.SetVertexColor(slot.qTex, slot.qColor)
+            _uiutil.SetVertexColor(slot.qTex, slot.qColor)
             if quality > 1 then
                 slot.qTex:Show()
             else
@@ -809,7 +377,7 @@ function _self.CreateSlot(frame, slotSize, id, bgTex, isEquipSlot)
     hitex:SetWidth(slotSize)
     hitex:SetHeight(slotSize)
     hitex:SetAlpha(0.75)
-    _util.SetVertexColor(hitex, _data.colors.defaultSlotHighlight)
+    _uiutil.SetVertexColor(hitex, _data.colors.defaultSlotHighlight)
     hitex:Hide()
 
     slot.countText = slot:CreateFontString(nil, "ARTWORK", "NumberFontNormal")
@@ -838,10 +406,10 @@ function _self:UpdateGearView(name)
             UpdateGearSlot(nil, i)
         end
     else
-        local bot = _self:GetBot(name)
+        local bot = _broker.GetBot(name)
         if bot == nil then return end
         
-        local status = _broker:GetBotStatus(name)
+        local status = _broker.GetBotStatus(name)
 
         if status.online  then
             _gearView.modelView:Show()
@@ -855,16 +423,16 @@ function _self:UpdateGearView(name)
         end
 
         local statusStr = "Level " .. bot.level 
-        _util.SetTextColor(_gearView.botDescription, _data.colors.gold)
+        _uiutil.SetTextColor(_gearView.botDescription, _data.colors.gold)
       
         if not status.online then
             statusStr = statusStr .. " (Cached)"
-            _util.SetTextColor(_gearView.botDescription, _data.colors.gray)
+            _uiutil.SetTextColor(_gearView.botDescription, _data.colors.gray)
         end
       
         _gearView.botName:SetText(bot.name)
         _gearView.botDescription:SetText(statusStr)
-        _util.SetTextColorToClass(_gearView.botName, bot.class)
+        _uiutil.SetTextColorToClass(_gearView.botName, bot.class)
       
         if bot.currency then
             _gearView.txtGold:SetText(bot.currency.gold)
@@ -897,10 +465,10 @@ function _self:SetupGearSlot(id, x, y)
             if slot.item and slot.item.link then
                 if not down then
                     if button == "RightButton" then
-                        _broker:GenerateCommand(_self.selectedBot, COMMAND.ITEM, COMMAND.ITEM_UNEQUIP, slot.item.link)
+                        _broker.GenerateCommand(_self.selectedBot, COMMAND.ITEM, COMMAND.ITEM_UNEQUIP, slot.item.link)
                         PlaySound("SPELLBOOKCLOSE")
                     elseif button == "LeftButton" then
-                        --_broker:GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_TRADE, slot.item.link)
+                        --_broker.GenerateCommand(PlayerbotsPanel.selectedBot, COMMAND.ITEM, COMMAND.ITEM_TRADE, slot.item.link)
                         --PlaySound("SPELLBOOKCLOSE")
                     end
                 end
@@ -1002,7 +570,7 @@ function _self:SetupGearFrame()
     updateGearBtn:SetPushedTexture(_data.textures.updateBotsDown)
     updateGearBtn:SetHighlightTexture(_data.textures.updateBotsHi)
     updateGearBtn:SetScript("OnClick", function(self, button, down)
-        _broker:StartQuery(QUERY_TYPE.GEAR, _self.selectedBot)
+        _broker.StartQuery(QUERY_TYPE.GEAR, _self.selectedBot)
     end)
     updateGearBtn:EnableMouse(true)
     _tooltips.AddInfoTooltip(updateGearBtn, _data.strings.tooltips.gearViewUpdateGear)
@@ -1017,7 +585,7 @@ function _self:SetupGearFrame()
     gearView.botDescription:SetText("No selection")
     gearView.botDescription:SetJustifyH("LEFT")
     gearView.botDescription:SetPoint("TOPLEFT", PlayerbotsGear, 5, -18)
-    _util.SetTextColor(gearView.botDescription, _data.colors.gold)
+    _uiutil.SetTextColor(gearView.botDescription, _data.colors.gold)
 
     gearView.onBotExperienceChanged = function(bot)
         if bot == _self.selectedBot then
@@ -1025,7 +593,7 @@ function _self:SetupGearFrame()
         end
     end
 
-    _broker.EVENTS.EXPERIENCE_CHANGED:Add(gearView.onBotExperienceChanged)
+    _broker.events.EXPERIENCE_CHANGED:Add(gearView.onBotExperienceChanged)
 
     local moneyposY = -15
     gearView.iconCopper = PlayerbotsGear:CreateTexture(nil, "OVERLAY")
@@ -1067,7 +635,7 @@ function _self:SetupGearFrame()
         gearView.txtCopper:SetText(bot.currency.copper)
     end
 
-    _broker.EVENTS.MONEY_CHANGED:Add( gearView.onCurrencyChanged)
+    _broker.events.MONEY_CHANGED:Add( gearView.onCurrencyChanged)
 
 
     _gearView.helpIcon = CreateFrame("Frame", nil, PlayerbotsGear)
@@ -1160,7 +728,7 @@ function _self:SetupGearFrame()
         end
     end
 
-    _broker.EVENTS.EQUIP_SLOT_CHANGED:Add(_gearView.onUpdatedEquipSlot)
+    _broker.events.EQUIP_SLOT_CHANGED:Add(_gearView.onUpdatedEquipSlot)
 
     _gearView.onUpdateAllSlots = function (bot)
         if _self.selectedBot and bot == _self.selectedBot then
@@ -1168,7 +736,7 @@ function _self:SetupGearFrame()
         end
     end
 
-    _broker.EVENTS.EQUIPMENT_CHANGED:Add( _gearView.onUpdateAllSlots)
+    _broker.events.EQUIPMENT_CHANGED:Add( _gearView.onUpdateAllSlots)
 end
 
 function _self:CreateWindow()
@@ -1225,7 +793,7 @@ local botSelectorButtons = {}
 -- insecureBtn is like an offline/out of reach, button that selects the CACHED bot data
 -- they swap depending on situation
 function _self:CreateBotSelectorButton(name)
-    local bot = _self:GetBot(name)
+    local bot = _broker.GetBot(name)
     if not bot then
         error("FATAL: PlayerbotsPanel:CreateBotSelectorButton() missing bot!" .. name)
         return
@@ -1244,9 +812,9 @@ function _self:CreateBotSelectorButton(name)
             _self:UpdateGearView(name)
         end
     end
-    _broker.EVENTS.STATUS_CHANGED:Add( rootFrame.statusUpdateHandler)
-    _broker.EVENTS.LEVEL_CHANGED:Add( rootFrame.statusUpdateHandler)
-    _broker.EVENTS.EXPERIENCE_CHANGED:Add( rootFrame.statusUpdateHandler)
+    _broker.events.STATUS_CHANGED:Add( rootFrame.statusUpdateHandler)
+    _broker.events.LEVEL_CHANGED:Add( rootFrame.statusUpdateHandler)
+    _broker.events.EXPERIENCE_CHANGED:Add( rootFrame.statusUpdateHandler)
 
 
     if rootFrame.secureBtn == nil then
@@ -1328,7 +896,7 @@ function _self:CreateBotSelectorButton(name)
 end
 
 function _self:UpdateBotSelectorButton(name)
-    local bot = _self:GetBot(name)
+    local bot = _broker.GetBot(name)
     if not bot then
         error("FATAL: PlayerbotsPanel:UpdateBotSelectorButton(name) Missing bot! ")
         return end
@@ -1340,7 +908,7 @@ function _self:UpdateBotSelectorButton(name)
     local isTarget = UnitName("target") == bot.name
     local selected = self.selectedBot == bot
 
-    local status = _broker:GetBotStatus(bot.name)
+    local status = _broker.GetBotStatus(bot.name)
     local online = status.online
     local inParty = status.party
 
@@ -1401,7 +969,7 @@ function _self:UpdateBotSelectorButton(name)
     oFrame:SetSize(width, height)
     
     oFrame.txtName:SetText(name .. " (" .. tostring(bot.level) .. ")")
-    _util.SetTextColorToClass(oFrame.txtName, bot.class)
+    _uiutil.SetTextColorToClass(oFrame.txtName, bot.class)
     
     oFrame.btnAdd:SetSize(14,14)
     oFrame.btnAdd:SetPoint("BOTTOMLEFT", 4, 5)
@@ -1460,13 +1028,13 @@ function _self:UpdateBotSelector()
     
     -- clean up removed bots
     for name, button in pairs(botSelectorButtons) do
-        if _dbchar.bots[name] == nil then
+        if _bots[name] == nil then
             button:Hide()
         end
     end
   
     local idx = 0
-    for name, bot in pairs(_dbchar.bots) do
+    for name, bot in pairs(_bots) do
         local rootFrame = nil
         if botSelectorButtons[name] == nil then 
             _self:CreateBotSelectorButton(name)
@@ -1566,13 +1134,13 @@ function _self:AddWindowStyling(frame)
 	addonNameLabel:SetJustifyH("RIGHT")
 	addonNameLabel:SetPoint("TOPRIGHT", frame, -70, -5)
 	addonNameLabel:SetTextColor(0.6, 0.6, 1, 1)
-	_util.SetTextColor(addonNameLabel, _data.colors.gold)
+	_uiutil.SetTextColor(addonNameLabel, _data.colors.gold)
 
     local versionLabel = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     versionLabel:SetText(_self.version)
 	versionLabel:SetJustifyH("RIGHT")
 	versionLabel:SetPoint("TOPRIGHT", frame, -30, -5)
-	_util.SetTextColor(versionLabel, _data.colors.gray)
+	_uiutil.SetTextColor(versionLabel, _data.colors.gray)
 
     frame.activeTabLabel = frame:CreateFontString(nil, "ARTWORK", "WorldMapTextFont")
     local activeTabLabel = frame.activeTabLabel
@@ -1580,7 +1148,7 @@ function _self:AddWindowStyling(frame)
 	activeTabLabel:SetJustifyH("CENTER")
 	activeTabLabel:SetPoint("TOP", frame, 0, -3)
     activeTabLabel:SetTextHeight(14)
-    _util.SetTextColor(activeTabLabel, _data.colors.gold)
+    _uiutil.SetTextColor(activeTabLabel, _data.colors.gold)
 
     frame.updateBotsBtn = CreateFrame("Button", nil, frame)
     local updateBotsBtn = frame.updateBotsBtn
@@ -1758,11 +1326,11 @@ local function CreateTab(name, frame, tabNum, tabGroup)
         subtab:SetAllPoints(self.innerframe)
         subtab:SetFrameLevel(self.innerframe:GetFrameLevel() + 1)
         subtab.idx = getn(self.subtabs) + 1
-        subtab.onActivate = _util.CreateEvent()
+        subtab.onActivate = _util.event.Create()
         if onActivate then
             subtab.onActivate:Add(onActivate)
         end
-        subtab.onDeactivate = _util.CreateEvent()
+        subtab.onDeactivate = _util.event.Create()
         if onDeactivate then
             subtab.onDeactivate:Add(onDeactivate)
         end
@@ -1778,7 +1346,7 @@ local function CreateTab(name, frame, tabNum, tabGroup)
 
     tab.activate = function(self)
         self.button.frame:SetButtonState("PUSHED", true)
-        _util.SetTextColor(self.button.text, _data.colors.white)
+        _uiutil.SetTextColor(self.button.text, _data.colors.white)
         if self.object ~= nil then
             self.outerframe:Show()
             frame.activeTabLabel:SetText(tab.name)
@@ -1792,7 +1360,7 @@ local function CreateTab(name, frame, tabNum, tabGroup)
     end
     tab.deactivate = function(self)
         self.button.frame:SetButtonState("NORMAL", false)
-        _util.SetTextColor(self.button.text, _data.colors.gold)
+        _uiutil.SetTextColor(self.button.text, _data.colors.gold)
         if self.object ~= nil then
             self.outerframe:Hide()
             self.object:OnDeactivate(self)
