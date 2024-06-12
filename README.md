@@ -3,6 +3,9 @@
 ### EARLY ALPHA - DOESNT WORK AND DONT REPORT BUGS
 ![image](/textures/screenshot-1.png)
 
+# Requires PlayerbotsBroker addon
+https://github.com/azcguy/PlayerbotsBroker
+
 This addon is for use with https://github.com/liyunfan1223/mod-playerbots 
 Right now its under development, and is using https://github.com/azcguy/PlayerbotsPanelEmu as a communication emulator for server side bot on a client
 
@@ -17,7 +20,8 @@ You are free to check the addon, but any bug reports will be ignored and closed 
 You are free to make suggestions, but read the planned features first.
 
 ## INSTRUCTIONS
-Clone the repository into your AddOns folder
+Clone https://github.com/azcguy/PlayerbotsBroker to your AddOns folder
+Clone this repository into your AddOns folder
 
 use /pp toggle 
 put it on a macro
