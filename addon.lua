@@ -120,9 +120,19 @@ function _self:UNIT_MODEL_CHANGED()
 end
 
 function _self:RegisterByName(name)
+    if name == nil or type(name) ~= "string" or name == "" then
+        return
+    end
     _broker.RegisterByName(name)
     _self:UpdateBotSelector()
     _self:SetSelectedBot(name)
+    _updateHandler:DelayCall(0.5, function()
+        if _self.selectedBot ~= nil then
+            _broker.StartQuery(QUERY_TYPE.GEAR, _self.selectedBot)
+            _broker.StartQuery(QUERY_TYPE.INVENTORY, _self.selectedBot)
+            _broker.StartQuery(QUERY_TYPE.STATS, _self.selectedBot)
+        end
+    end)
 end
 
 function _self:UnregisterByName(name)
@@ -133,13 +143,14 @@ end
 
 function _self:RefreshSelection()
     _updateHandler:DelayCall(0.25, function()
-        if self.selectedBot ~= nil then
+        if _self.selectedBot ~= nil then
             _self:SetSelectedBot(self.selectedBot.name)
         end
     end)
 end
 
 function _self:ClearSelection()
+    _self.selectedBot = nil
     _self:UpdateBotSelector()
     _self:UpdateGearView(nil)
     _self.events.onBotSelectionChanged:Invoke(_self.selectedBot)
@@ -170,6 +181,8 @@ local function UpdateGearSlot(bot, slotNum)
     if bot then
         item = bot.items[slotNum]
         slot:SetItem(item)
+    else
+        slot:SetItem(nil)
     end
 end
 
@@ -899,7 +912,8 @@ function _self:UpdateBotSelectorButton(name)
     local bot = _broker.GetBot(name)
     if not bot then
         error("FATAL: PlayerbotsPanel:UpdateBotSelectorButton(name) Missing bot! ")
-        return end
+        return 
+    end
 
     local rootFrame = botSelectorButtons[name]
     local idx = rootFrame.ppidx

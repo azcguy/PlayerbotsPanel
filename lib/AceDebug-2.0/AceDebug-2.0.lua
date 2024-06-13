@@ -144,7 +144,7 @@ function AceDebug:SetDebugLevel(level)
 end
 
 function AceDebug:GetDebugPrefix()
-	return ("|cff7fff7f(DEBUG) %s:[%s.%3d]|r"):format( tostring(self), date("%H:%M:%S"), (GetTime() % 1) * 1000)
+	return  "|cff7fff7f(PP) |r :"--("|cff7fff7f(DEBUG) %s:[%s.%3d]|r"):format( tostring(self), date("%H:%M:%S"), (GetTime() % 1) * 1000)
 end
 
 function AceDebug:GetDebugLevel()
